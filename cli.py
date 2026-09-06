@@ -13,9 +13,7 @@ privacy-safe JSONL execution log.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import re
 import sys
 import time
 import uuid
@@ -28,6 +26,7 @@ from langchain_core.messages import HumanMessage
 from src.graph.build_graph import build_graph
 from src.memory.checkpointer import get_checkpointer
 from src.observability.audit_log import log_event
+from src.observability.redaction import sanitize as _sanitize
 from src.state.schema import LoanApplicationState, new_state
 
 
@@ -36,56 +35,14 @@ DEFAULT_INPUT = PROJECT_ROOT / "sample_inputs" / "applicant_strong.json"
 CLI_LOG_DIR = PROJECT_ROOT / "data" / "logs"
 CLI_LOG_PATH = CLI_LOG_DIR / "cli_execution.jsonl"
 
-_SENSITIVE_KEY_RE = re.compile(
-    r"(^|_)(full_name|dob|dob_synthetic|birth|declared_income|salary|employment|"
-    r"employer|address|email|phone|mobile|ssn|pan|aadhaar|account|routing|"
-    r"card|notes|raw|message|prompt|content|text|applicant_id|user_id)(_|$)",
-    re.IGNORECASE,
-)
+# Redaction (sensitive-key regex, sanitize(), fingerprint()) lives in
+# src/observability/redaction.py and is shared with the project's audit
+# logger, rather than being re-implemented here — see that module's
+# docstring for why the two used to drift.
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _fingerprint(value: Any) -> str:
-    digest = hashlib.sha256(str(value).encode("utf-8")).hexdigest()
-    return f"sha256:{digest[:16]}"
-
-
-def _sanitize(value: Any, key: str | None = None) -> Any:
-    """Sanitize persisted CLI event data while retaining useful structure."""
-    if key and _SENSITIVE_KEY_RE.search(key):
-        return {
-            "redacted": True,
-            "fingerprint": _fingerprint(value),
-        }
-
-    if hasattr(value, "model_dump"):
-        return _sanitize(value.model_dump(mode="json"), key)
-
-    if isinstance(value, dict):
-        return {
-            str(k): _sanitize(v, str(k))
-            for k, v in value.items()
-        }
-
-    if isinstance(value, (list, tuple, set)):
-        return [_sanitize(v) for v in value]
-
-    if hasattr(value, "content"):
-        return {
-            "type": getattr(value, "type", value.__class__.__name__),
-            "content_fingerprint": _fingerprint(value.content),
-        }
-
-    if isinstance(value, str):
-        return value
-
-    if isinstance(value, (int, float, bool)) or value is None:
-        return value
-
-    return str(value)
 
 
 def _display(value: Any) -> Any:

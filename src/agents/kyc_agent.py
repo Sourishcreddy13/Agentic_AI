@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src.llm.gateway import invoke_structured_with_fallback
 from src.context.middleware import prepare_worker_context
 from src.mcp_client import invoke_mcp_tool_sync
-from src.state.schema import LoanApplicationState, KYCResult, ReflectionNote
+from src.state.schema import ComplianceEvent, LoanApplicationState, KYCResult, ReflectionNote
 
 
 class ApplicantLookupResult(BaseModel):
@@ -90,4 +90,26 @@ def kyc_check_node(state: LoanApplicationState) -> dict:
             detail=f"KYC explanation generation failed: {str(exc)[:240]}",
         )]}
 
-    return {"kyc_result": validated, "next_node": "credit_assessment", "compressed_summary": selected.get("compressed_summary")}
+    updates: dict = {
+        "kyc_result": validated,
+        "next_node": "credit_assessment",
+        "compressed_summary": selected.get("compressed_summary"),
+        "messages": [AIMessage(content=f"KYC status: {status}.")],
+    }
+    if status == "fail":
+        # Compliance visibility only — routing to offer_draft (the referral
+        # note) is decided entirely by route_after_kyc in routing.py and is
+        # unaffected by this. Recorded as a ComplianceEvent, not a
+        # ReflectionNote, so it can never be misread by reflector_node as
+        # "the current failure" for an unrelated later retry.
+        updates["compliance_flags"] = [
+            ComplianceEvent(
+                event_type="kyc_fail_referral",
+                detail=(
+                    f"KYC failed for applicant {applicant.applicant_id} "
+                    f"(risk_flags={risk_flags}); referred to compliance "
+                    "officer with a declined offer, no credit assessment run."
+                ),
+            )
+        ]
+    return updates

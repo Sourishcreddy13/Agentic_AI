@@ -3,10 +3,17 @@ Builds the LangGraph StateGraph (AC-01, AC-02, AC-03).
 
 Phase 4:
 - KYC and credit workers invoke MCP tools through langchain-mcp-adapters.
-- Worker reasoning uses Gemini as the primary LLM with Groq as fallback.
+- Worker reasoning uses Gemini as the primary LLM with an approved Groq
+  fallback (see docs/deviations.md for the administrator-approved scope).
 - SqliteSaver provides per-thread checkpoint persistence.
 - Long-term memory is read at intake and consolidated after offer_draft.
 - memory_enabled is supplied per invocation through LangGraph configurable state.
+
+Supervisor dispatch (AC-02): "supervisor" is wired with a real conditional
+edge (route_after_supervisor), not a static add_edge. The supervisor node
+inspects state to decide the entry hop, and that decision is what the graph
+actually follows — including resuming straight into the correct in-flight
+stage for a thread that already has partial progress.
 """
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableConfig
@@ -18,6 +25,7 @@ from src.observability.audit_log import log_event, summarize_state
 from src.state.schema import LoanApplicationState
 from src.graph.supervisor import supervisor
 from src.graph.routing import (
+    route_after_supervisor,
     route_after_intake,
     route_after_kyc,
     route_after_credit,
@@ -77,7 +85,16 @@ def build_graph(checkpointer=None, interrupt_before=None):
     graph.add_node("reflector", _observed_node("reflector", reflector_node))
 
     graph.set_entry_point("supervisor")
-    graph.add_edge("supervisor", "intake")
+    graph.add_conditional_edges(
+        "supervisor", route_after_supervisor,
+        {
+            "intake": "intake",
+            "kyc_check": "kyc_check",
+            "credit_assessment": "credit_assessment",
+            "offer_draft": "offer_draft",
+            "END": END,
+        },
+    )
 
     graph.add_conditional_edges(
         "intake", route_after_intake,

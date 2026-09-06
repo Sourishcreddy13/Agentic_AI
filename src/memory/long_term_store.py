@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import chromadb
-from sentence_transformers import SentenceTransformer
 
 from src.config import CONFIG, PROJECT_ROOT
 from src.memory.eviction import (
@@ -20,6 +20,24 @@ from src.state.schema import MemoryFact
 
 
 COLLECTION_NAME = "applicant_facts"
+DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+
+@lru_cache(maxsize=4)
+def _embedding_model(model_name: str):
+    """Load a local Sentence-Transformers model once per process per name.
+
+    ChromaMemoryStore is constructed fresh on essentially every node
+    invocation that touches long-term memory (intake's memory lookup,
+    memory_consolidation's post-decision write) — previously each
+    construction loaded its own SentenceTransformer instance from disk.
+    Caching by model name (the same pattern src/rag/policy_store.py already
+    uses for the RAG embedding model) means the model is loaded once and
+    reused for the life of the process.
+    """
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer(model_name)
 
 
 class ChromaMemoryStore:
@@ -39,9 +57,9 @@ class ChromaMemoryStore:
         self.collection = self.client.get_or_create_collection(name=COLLECTION_NAME)
 
         model_name = CONFIG.get("memory", {}).get(
-            "embedding_model", "sentence-transformers/all-MiniLM-L6-v2"
+            "embedding_model", DEFAULT_EMBEDDING_MODEL
         )
-        self.embedder = SentenceTransformer(model_name)
+        self.embedder = _embedding_model(model_name)
 
     def _embed(self, texts: list[str]) -> list[list[float]]:
         vectors = self.embedder.encode(texts, normalize_embeddings=True)

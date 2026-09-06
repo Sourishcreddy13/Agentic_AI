@@ -1,0 +1,19 @@
+{
+  "ac_reference": "NFR-08",
+  "scenario": "Real graph + real SqliteSaver checkpointer + real src.context.compress.summarize_if_long, driven through the same thread_id across 5 separate cli-style runs, showing the 20-message compression threshold is actually reachable in normal multi-session use, not only in an isolated unit test.",
+  "message_counts_per_run": [
+    5,
+    10,
+    15,
+    20,
+    25
+  ],
+  "compressed_after_run": [
+    false,
+    false,
+    false,
+    false,
+    true
+  ],
+  "final_offer_present": true
+}

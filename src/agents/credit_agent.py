@@ -13,7 +13,7 @@ decision in `rationale`.
 """
 from __future__ import annotations
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from src.llm.gateway import invoke_structured_with_fallback
@@ -175,9 +175,17 @@ def credit_assessment_node(state: LoanApplicationState) -> dict:
             action_taken="retry",
             detail=f"Rationale generation failed: {str(exc)[:240]}",
         )
-        # If it's the first failure, still build the assessment with a stub rationale
-        # so the graph can proceed rather than blocking on explanation generation.
-        if state["retry_count"] == 0:
+        # Stub-vs-escalate is decided from how many times *rationale
+        # generation specifically* has already failed in this run, not the
+        # graph-wide retry_count. Using the global counter here previously
+        # meant an unrelated earlier retry (e.g. a transient KYC hiccup)
+        # silently consumed this node's own one-stub-then-escalate budget.
+        rationale_failure_count = sum(
+            1
+            for prior_note in state.get("reflection_log", [])
+            if prior_note.triggered_by == "llm_rationale_failure"
+        )
+        if rationale_failure_count == 0:
             rationale = f"Decision: {decision}. Bureau facts used (rationale unavailable)."
             final_confidence = base_confidence
         else:
@@ -201,4 +209,15 @@ def credit_assessment_node(state: LoanApplicationState) -> dict:
         )
         return {"reflection_log": [note]}
 
-    return {"credit_assessment": assessment, "next_node": "offer_draft"}
+    return {
+        "credit_assessment": assessment,
+        "next_node": "offer_draft",
+        "messages": [
+            AIMessage(
+                content=(
+                    f"Credit decision: {decision} "
+                    f"(score={bureau.synthetic_score}, dti={bureau.dti_estimate})."
+                )
+            )
+        ],
+    }

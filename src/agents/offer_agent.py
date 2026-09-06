@@ -1,7 +1,7 @@
 """Offer-draft worker (AC-02, AC-04)."""
 from __future__ import annotations
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src.llm.gateway import invoke_structured_with_fallback
 from src.context.middleware import prepare_worker_context
@@ -60,7 +60,11 @@ def offer_draft_node(state: LoanApplicationState) -> dict:
             "conditions": ["Application declined at KYC stage; referred to compliance officer."],
             "is_indicative": True,
         })
-        return {"offer": offer, "next_node": "END"}
+        return {
+            "offer": offer,
+            "next_node": "END",
+            "messages": [AIMessage(content="Offer: declined referral (KYC fail).")],
+        }
 
     assert credit is not None, "offer_draft_node reached without a credit assessment"
     assert applicant is not None, "offer_draft_node reached without an applicant profile"
@@ -71,7 +75,11 @@ def offer_draft_node(state: LoanApplicationState) -> dict:
             "conditions": [f"Not approved for indicative offer: {credit.decision}."],
             "is_indicative": True,
         })
-        return {"offer": offer, "next_node": "END"}
+        return {
+            "offer": offer,
+            "next_node": "END",
+            "messages": [AIMessage(content=f"Offer: not approved ({credit.decision}).")],
+        }
 
     constraints = _offer_constraints(
         credit.bureau_score_synthetic,
@@ -83,7 +91,11 @@ def offer_draft_node(state: LoanApplicationState) -> dict:
             "conditions": ["Pricing tier requires manual review; no indicative offer issued."],
             "is_indicative": True,
         })
-        return {"offer": offer, "next_node": "END"}
+        return {
+            "offer": offer,
+            "next_node": "END",
+            "messages": [AIMessage(content="Offer: pricing tier requires manual review.")],
+        }
 
     selected, _compression = prepare_worker_context(state, "offer")
     try:
@@ -117,4 +129,15 @@ def offer_draft_node(state: LoanApplicationState) -> dict:
             ]
         }
 
-    return {"offer": offer, "next_node": "END"}
+    return {
+        "offer": offer,
+        "next_node": "END",
+        "messages": [
+            AIMessage(
+                content=(
+                    f"Offer drafted: principal={offer.principal}, "
+                    f"apr={offer.apr}%, term={offer.term_months}mo."
+                )
+            )
+        ],
+    }

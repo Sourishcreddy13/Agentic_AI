@@ -93,6 +93,23 @@ class ReflectionNote(BaseModel):
     detail: str
 
 
+class ComplianceEvent(BaseModel):
+    """A point-in-time compliance-relevant event, recorded purely for audit.
+
+    This is deliberately a *separate* channel from ReflectionNote /
+    reflection_log. reflection_log's last entry is what reflector_node reads
+    to classify "the current failure" for the retry/replan/escalate control
+    loop (src/agents/reflector.py); appending an unrelated audit note there
+    would risk a later, unrelated node reading it as the most recent failure
+    and misclassifying. ComplianceEvent records things that must be visible
+    for audit/compliance (e.g. a detected prompt-injection attempt, or a
+    KYC-fail referral) without ever being able to influence routing.
+    """
+
+    event_type: str
+    detail: str = ""
+
+
 # --------------------------------------------------------------------------
 # Root graph state
 # --------------------------------------------------------------------------
@@ -125,6 +142,9 @@ class LoanApplicationState(TypedDict):
     # --- long-term memory recall (written by memory layer in Phase 4) ---
     long_term_memory_hits: Optional[list[str]]
 
+    # --- compliance audit trail (never consulted by routing — see ComplianceEvent) ---
+    compliance_flags: Annotated[list[ComplianceEvent], add]
+
 
 def new_state(thread_id: str, user_id: str = "default-user") -> LoanApplicationState:
     """
@@ -147,4 +167,5 @@ def new_state(thread_id: str, user_id: str = "default-user") -> LoanApplicationS
         quarantined_inputs=[],
         compressed_summary=None,
         long_term_memory_hits=None,
+        compliance_flags=[],
     )

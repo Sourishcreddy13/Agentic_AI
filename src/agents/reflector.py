@@ -5,7 +5,23 @@ Failure taxonomy
 ----------------
 RETRYABLE   — transient failures (MCP outage, LLM timeout, malformed output).
 REPLAN      — structural failures (missing prerequisite, wrong stage output).
-ESCALATE    — policy/business outcomes (KYC manual review, thin-file, max retries).
+ESCALATE    — policy/business outcomes reflector_node itself decides to
+              escalate (KYC manual review, thin-file, max retries).
+
+Every value in RETRYABLE / REPLAN / ESCALATE below is a `ReflectionNote.
+triggered_by` value that can legitimately be the *last* entry in
+reflection_log when reflector_node runs, because reflector_node's own
+classification logic reads exactly that last entry to decide what to do
+next. Two related but distinct conditions — a KYC-fail referral, and a
+detected prompt-injection attempt in applicant free text — are NOT included
+here even though they are escalation-worthy: they are compliance events
+that must be visible for audit without ever being able to influence this
+control loop (a KYC-fail is routed straight to a declined-offer referral by
+route_after_kyc, never through the reflector at all; an injection attempt
+must never change routing, by design). Both are recorded instead as
+`ComplianceEvent` entries in `state["compliance_flags"]` — see
+src/agents/kyc_agent.py and src/agents/intake_agent.py — a channel this
+module deliberately never reads.
 
 Budget rule: both RETRYABLE and REPLAN triggers count against retry_count.
 When retry_count reaches MAX_RETRIES - 1 the reflector writes a
@@ -41,9 +57,7 @@ REPLAN: frozenset[str] = frozenset({
 ESCALATE: frozenset[str] = frozenset({
     "kyc_manual_review",
     "thin_file_manual_underwriting",
-    "kyc_fail_referral",
     "max_retries_exceeded",
-    "suspected_prompt_injection_in_free_text",
 })
 
 

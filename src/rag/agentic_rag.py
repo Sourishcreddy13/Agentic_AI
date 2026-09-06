@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
+from src.async_utils import run_sync
 from src.llm.gateway import get_configured_provider_names, get_provider_model
 from src.mcp_client import _normalize_mcp_result, get_mcp_tools
 from src.observability.audit_log import fingerprint, log_event
@@ -29,7 +30,11 @@ class PolicyLookupResult:
 
 
 def _run_async(coro):
-    return asyncio.run(coro)
+    # Delegates to the shared, event-loop-aware helper (src/async_utils.py)
+    # instead of a bare asyncio.run(), so this stays safe if ever called
+    # from an async host (e.g. the optional FastAPI interface) rather than
+    # only from the synchronous CLI/Streamlit call stacks used today.
+    return run_sync(coro)
 
 
 async def _load_policy_tool():

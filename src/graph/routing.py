@@ -17,6 +17,19 @@ def _record(state: LoanApplicationState, stage: str, destination: str) -> str:
     return destination
 
 
+def route_after_supervisor(state: LoanApplicationState) -> str:
+    """Dispatch exactly the hop the supervisor computed.
+
+    This is the fix for the previously "dead" next_node field: the
+    supervisor's decision used to be discarded by a static add_edge to
+    "intake". It is now consulted directly, so a resumed/continued thread
+    (applicant/kyc/credit already populated in state) dispatches to its
+    correct next stage instead of always restarting at intake.
+    """
+    destination = state.get("next_node") or "intake"
+    return _record(state, "after_supervisor", destination)
+
+
 def route_after_intake(state: LoanApplicationState) -> str:
     destination = "kyc_check" if state["applicant"] else "reflector"
     return _record(state, "after_intake", destination)

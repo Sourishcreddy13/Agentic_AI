@@ -1,7 +1,7 @@
 {
   "ac_reference": "AC-09/AC-10",
-  "session_id": "transcript-1788690241",
-  "timestamp": "2026-09-06T10:24:01Z",
+  "session_id": "transcript-1788698368",
+  "timestamp": "2026-09-06T12:39:28Z",
   "server": "loan-origination-mcp",
   "adapter": "langchain-mcp-adapters v0.3.2",
   "transport": "stdio",
@@ -24,10 +24,10 @@
         {
           "type": "text",
           "text": "{\n  \"applicant_id\": \"SYN-0001\",\n  \"found\": true,\n  \"prior_applications\": 1,\n  \"synthetic_watchlist_hit\": false\n}",
-          "id": "lc_3c914d6e-f5eb-4044-a276-d3993d53febf"
+          "id": "lc_b0f515f0-9dd7-419b-9368-4f80ff155871"
         }
       ],
-      "latency_ms": 278
+      "latency_ms": 383
     },
     {
       "call_number": 2,
@@ -40,10 +40,10 @@
         {
           "type": "text",
           "text": "{\n  \"applicant_id\": \"SYN-0001\",\n  \"found_in_bureau\": true,\n  \"synthetic_score\": 740,\n  \"delinquencies_24m\": 0,\n  \"thin_file\": false,\n  \"dti_estimate\": 0.071\n}",
-          "id": "lc_bb31f887-7684-49bd-a817-97c39fc8a339"
+          "id": "lc_a9cbcda4-0359-4b51-ba6b-579513a623eb"
         }
       ],
-      "latency_ms": 277
+      "latency_ms": 280
     },
     {
       "call_number": 3,
@@ -55,10 +55,10 @@
         {
           "type": "text",
           "text": "{\n  \"applicant_id\": \"SYN-0002\",\n  \"found\": true,\n  \"prior_applications\": 0,\n  \"synthetic_watchlist_hit\": false\n}",
-          "id": "lc_d14edfbb-3825-4e67-be20-05ff2c8bd632"
+          "id": "lc_4c5a660e-4a30-4e83-a26d-b258a627beba"
         }
       ],
-      "latency_ms": 279
+      "latency_ms": 312
     },
     {
       "call_number": 4,
@@ -71,20 +71,20 @@
         {
           "type": "text",
           "text": "{\n  \"clause_id\": \"policy_02_dti_ratios::thin_file_applicants\",\n  \"policy_id\": \"DTI-001\",\n  \"heading\": \"Thin-File Applicants\",\n  \"source_file\": \"policy_02_dti_ratios.md\",\n  \"snippet\": \"# CLAUSE: DTI-001 \u2014 Debt-to-Income Ratio Limits **Policy ID:** DTI-001   **Effective:** 2025-01-01   **Applies to:** All personal loan products  ## Thin-File Applicants Applicants with insufficient credit history (thin-file, bureau score < 500) are subject to a reduced DTI cap of 0.30 regardless of income tier. Any thin-file application with DTI between 0.30 and 0.50 must be referred to the manual underwriting team.\",\n  \"score\": 0.6995\n}",
-          "id": "lc_6ce703c5-8071-4194-9bf8-8f7ca1ffc795"
+          "id": "lc_bdc4f4fe-1865-46a0-a592-c13c3c0ada6b"
         },
         {
           "type": "text",
           "text": "{\n  \"clause_id\": \"policy_04_thin_file::offer_constraints_for_thin_file_approvals\",\n  \"policy_id\": \"THIN-001\",\n  \"heading\": \"Offer Constraints for Thin-File Approvals\",\n  \"source_file\": \"policy_04_thin_file.md\",\n  \"snippet\": \"# CLAUSE: THIN-001 \u2014 Thin-File Applicant Handling **Policy ID:** THIN-001   **Effective:** 2025-01-01   **Applies to:** Personal loan applicants with bureau score below 500 or                 fewer than 3 active credit accounts in the past 24 months  ## Offer Constraints for Thin-File Approvals If the manual underwriting team approves a thin-file application, the following constraints apply: - Maximum principal: INR 100,000 - Maximum term: 24 months - Minimum APR: 14% (risk premium) - Mandatory 6-month review clause\",\n  \"score\": 0.5468\n}",
-          "id": "lc_6fb906f3-43e5-4844-aa5e-190bb92ed3b8"
+          "id": "lc_d8ebf1ba-31ab-4dd4-83a3-cb30dc84ea5e"
         },
         {
           "type": "text",
           "text": "{\n  \"clause_id\": \"policy_04_thin_file::decline_conditions\",\n  \"policy_id\": \"THIN-001\",\n  \"heading\": \"Decline Conditions\",\n  \"source_file\": \"policy_04_thin_file.md\",\n  \"snippet\": \"# CLAUSE: THIN-001 \u2014 Thin-File Applicant Handling **Policy ID:** THIN-001   **Effective:** 2025-01-01   **Applies to:** Personal loan applicants with bureau score below 500 or                 fewer than 3 active credit accounts in the past 24 months  ## Decline Conditions Thin-file applicants are declined (without manual review) only if: - KYC has already failed, OR - DTI ratio exceeds 0.60\",\n  \"score\": 0.5331\n}",
-          "id": "lc_affd3e22-1fe4-4d73-9cc5-2ded202623b8"
+          "id": "lc_86b3a0fa-b61e-4c7e-99b5-3434573a0f86"
         }
       ],
-      "latency_ms": 10587,
+      "latency_ms": 69178,
       "note": "MCP policy-search tool exposed by the server. Discretionary agentic-RAG behavior is evidenced separately by AC-11."
     }
   ],
@@ -95,7 +95,7 @@
       "retrieved": true,
       "content_type": "text",
       "content_length": 2677,
-      "latency_ms": 356
+      "latency_ms": 390
     }
   ]
 }

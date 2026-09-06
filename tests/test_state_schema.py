@@ -10,7 +10,7 @@ def test_state_is_typed_dict_with_expected_keys():
         "user_id", "thread_id", "messages", "applicant", "kyc_result",
         "credit_assessment", "offer", "next_node", "retry_count",
         "reflection_log", "quarantined_inputs", "compressed_summary",
-        "long_term_memory_hits",
+        "long_term_memory_hits", "compliance_flags",
     }
     assert set(state.keys()) == expected_keys
     assert state["thread_id"] == "t-1"

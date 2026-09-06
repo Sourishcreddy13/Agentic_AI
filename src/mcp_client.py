@@ -5,21 +5,35 @@ v0.3.2 API: MultiServerMCPClient has no async context manager.
 - `await client.get_tools()` — async, loads tool schemas (each invocation
   creates a fresh session internally, so no persistent connection to manage).
 - Tools returned are standard LangChain BaseTool objects; each `.ainvoke()`
-  spawns a new MCP session under the hood.
+  spawns a new MCP session under the hood (a limitation of this adapter
+  version's design, not of MCP itself).
+
+Performance note: the tool *schema listing* (`client.get_tools()`) is its
+own stdio handshake, separate from actually calling a tool. Previously this
+project rebuilt a `MultiServerMCPClient` and re-listed tool schemas on
+*every single* `invoke_mcp_tool_sync` call — i.e. two subprocess spawns per
+tool call (one to list tools, one inside `.ainvoke()` to call it). The
+schema list never changes within a process, so it is cached at module scope
+below, cutting that in half. The remaining per-call session inside
+`.ainvoke()` is inherent to how langchain-mcp-adapters v0.3.2 manages MCP
+sessions and would need a persistent-session refactor (see
+docs/mcp-integration-decision.md) to remove entirely.
 """
 from __future__ import annotations
 
-import asyncio
 import sys
 from pathlib import Path
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.sessions import StdioConnection
 
+from src.async_utils import run_sync
 from src.observability.audit_log import log_event
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVER_SCRIPT = REPO_ROOT / "mcp_server" / "server.py"
+
+_cached_tools: list | None = None
 
 
 def _build_client() -> MultiServerMCPClient:
@@ -32,13 +46,28 @@ def _build_client() -> MultiServerMCPClient:
     return MultiServerMCPClient({"loan_origination": connection})
 
 
-async def get_mcp_tools():
+async def get_mcp_tools(*, refresh: bool = False):
     """
     Returns a list of LangChain BaseTool objects ready for bind_tools().
-    Each tool invocation creates its own MCP session (v0.3.2 behaviour).
+
+    The tool/schema list is cached at module scope after the first
+    successful load (pass refresh=True, or call reset_mcp_tools_cache(),
+    to force a fresh listing — e.g. in tests that restart the server).
+    Each individual tool invocation still opens its own MCP session per
+    langchain-mcp-adapters v0.3.2 behaviour; only the schema-listing
+    handshake is avoided on repeat calls.
     """
-    client = _build_client()
-    return await client.get_tools()
+    global _cached_tools
+    if _cached_tools is None or refresh:
+        client = _build_client()
+        _cached_tools = await client.get_tools()
+    return _cached_tools
+
+
+def reset_mcp_tools_cache() -> None:
+    """Clear the cached tool list. Mainly useful for test isolation."""
+    global _cached_tools
+    _cached_tools = None
 
 
 def _normalize_mcp_result(result):
@@ -95,7 +124,7 @@ def invoke_mcp_tool_sync(tool_name: str, arguments: dict):
             log_event("mcp_tool_failed", tool=tool_name, error_type=type(exc).__name__)
             raise
 
-    return asyncio.run(_invoke())
+    return run_sync(_invoke())
 
 async def get_mcp_resource(resource_uri: str):
     """

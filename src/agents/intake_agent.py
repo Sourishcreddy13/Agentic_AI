@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from pydantic import ValidationError
 
@@ -11,7 +11,7 @@ from src.context.quarantine import quarantine_applicant_text
 from src.memory import runtime
 from src.llm.gateway import invoke_structured_with_fallback
 from src.context.middleware import prepare_worker_context
-from src.state.schema import ApplicantProfile, LoanApplicationState, ReflectionNote
+from src.state.schema import ApplicantProfile, ComplianceEvent, LoanApplicationState, ReflectionNote
 from src.observability.audit_log import log_event
 
 
@@ -134,6 +134,13 @@ def intake_node(state: LoanApplicationState, config: RunnableConfig) -> dict:
         "applicant": profile,
         "next_node": "kyc_check",
         "long_term_memory_hits": memory_hits,
+        # "write" context engineering: a short, non-sensitive transcript
+        # entry per stage. This keeps state["messages"] a genuine growing
+        # record of the workflow (rather than a single static entry), which
+        # is what makes long-thread compression (NFR-08) a reachable path
+        # for a returning applicant with many prior submissions on the same
+        # thread — see tests/test_multi_turn_compression.py.
+        "messages": [AIMessage(content=f"Intake completed for applicant {profile.applicant_id}.")],
     }
     if raw_notes:
         wrapped_notes, suspicious = quarantine_applicant_text(raw_notes)
@@ -145,5 +152,24 @@ def intake_node(state: LoanApplicationState, config: RunnableConfig) -> dict:
                 thread_id=state.get("thread_id"),
                 action="quarantined_and_excluded_from_prompts",
             )
+            # Compliance visibility: a detected injection attempt is recorded
+            # as a ComplianceEvent (a channel reflector_node never reads),
+            # not a ReflectionNote — so it is visible for audit/compliance
+            # review without any risk of being misread as "the current
+            # failure" by the reflector's retry/replan/escalate classifier.
+            # next_node above is unchanged and the graph still continues to
+            # kyc_check exactly as before — see
+            # tests/test_routing.py::test_injection_in_free_text_does_not_trigger_reflection_bypass.
+            updates["compliance_flags"] = [
+                ComplianceEvent(
+                    event_type="suspected_prompt_injection_in_free_text",
+                    detail=(
+                        "Applicant-submitted free text matched a known "
+                        "prompt-injection pattern and was quarantined. "
+                        "Recorded for compliance review; routing and "
+                        "extraction were not affected."
+                    ),
+                )
+            ]
 
     return updates

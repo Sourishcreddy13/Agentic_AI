@@ -20,19 +20,19 @@ A working multi-agent application delivered as a Git repository that demonstrate
 * **Reproducibility Rule.** The system must run from a single documented command with committed sample application inputs and a README quick-start.
 * **AC-Traceability Rule.** Each Acceptance Criterion must be referenced by at least one test or committed evidence artifact carrying its AC-NN identifier.
 * **Context-Isolation Rule.** Free-text applicant-submitted content is untrusted; it must be isolated (quarantined) and never treated as instructions to the agent.
-* **Open-Source & No-Docker Rule.** Use the approved open-source stack with Google Gemini as the primary LLM provider. A configured backup API provider (currently Groq) is permitted solely for graceful degradation. The project must build, run, and be evaluated with pip + Python alone — no Docker and no external database service.
+* **Open-Source & No-Docker Rule.** Use the approved open-source stack with Google Gemini as the LLM provider. The project must build, run, and be evaluated with pip + Python alone — no Docker and no external database service. *A configured backup API provider (currently Groq), used solely for graceful degradation on primary-provider failure, is an administrator-approved deviation from this rule — see `docs/deviations.md` (DEV-001) for scope and approval, rather than treating it as part of the baseline requirement.*
 
 ---
 
 # 4. Technology & Framework Stack
 
-The stack is fixed to an open-source toolchain with Google Gemini as the primary model provider; a configured backup API is permitted for graceful degradation. The project must build, run, and be evaluated with pip + Python alone — no Docker and no external database service.
+The stack is fixed to an open-source toolchain with Google Gemini as the model provider. The project must build, run, and be evaluated with pip + Python alone — no Docker and no external database service. (A configured backup API, used for graceful degradation on primary-provider failure, is an approved deviation — see `docs/deviations.md`, DEV-001.)
 
 | Layer | Approved tool (open source unless noted) |
 | :--- | :--- |
 | Language | Python 3.11+ |
 | Agent Framework | LangGraph (MIT, required); CrewAI optional for the single-vs-multi comparison |
-| LLM Provider | Google Gemini (API) primary; configured backup API permitted for graceful degradation |
+| LLM Provider | Google Gemini (API) — sole provider per spec; configured backup API permitted only as an approved deviation, see `docs/deviations.md` (DEV-001) |
 | Interoperability | MCP Python SDK (stdio) + langchain-mcp-adapters (MIT) |
 | Memory | langgraph-checkpoint-sqlite (SQLite file) + LangMem; Chroma / FAISS for semantic memory |
 | Embeddings | Sentence-Transformers (local, open source) |

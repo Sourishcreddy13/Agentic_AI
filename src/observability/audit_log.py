@@ -1,23 +1,18 @@
-"""Structured JSONL audit logging with aggressive PII redaction."""
+"""Structured JSONL audit logging with aggressive PII redaction.
+
+Redaction primitives (the sensitive-key regex, sanitize(), fingerprint())
+live in src/observability/redaction.py and are shared with cli.py's own
+execution log, rather than being defined independently in both places.
+"""
 from __future__ import annotations
 
-import hashlib
 import json
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from src.config import CONFIG, PROJECT_ROOT
-
-_SENSITIVE_KEY_RE = re.compile(
-    r"(^|_)(full_name|dob(_synthetic)?|birth|declared_income|salary|employment|employer|"
-    r"address|email|phone|mobile|ssn|pan|aadhaar|account|routing|card|notes|raw|"
-    r"message|prompt|content|text|applicant_id|user_id)(_|$)",
-    re.IGNORECASE,
-)
-_EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
-_PHONE_RE = re.compile(r"(?<!\d)(?:\+?\d[\d\s().-]{7,}\d)(?!\d)")
+from src.observability.redaction import fingerprint, sanitize as _sanitize
 
 
 def _settings() -> dict[str, Any]:
@@ -31,31 +26,6 @@ def _log_path() -> Path:
         path = PROJECT_ROOT / path
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def fingerprint(value: Any) -> str:
-    digest = hashlib.sha256(str(value).encode("utf-8")).hexdigest()
-    return f"sha256:{digest[:16]}"
-
-
-def _scrub_string(value: str) -> str:
-    value = _EMAIL_RE.sub("[REDACTED_EMAIL]", value)
-    value = _PHONE_RE.sub("[REDACTED_PHONE]", value)
-    return value
-
-
-def _sanitize(value: Any, key: str | None = None) -> Any:
-    if key and _SENSITIVE_KEY_RE.search(key):
-        return {"redacted": True, "fingerprint": fingerprint(value)}
-    if isinstance(value, dict):
-        return {str(k): _sanitize(v, str(k)) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_sanitize(item) for item in value]
-    if isinstance(value, str):
-        return _scrub_string(value)
-    if isinstance(value, (int, float, bool)) or value is None:
-        return value
-    return _scrub_string(str(value))
 
 
 def _identifier(value: Any) -> str | None:
