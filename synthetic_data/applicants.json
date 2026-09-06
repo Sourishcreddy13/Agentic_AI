@@ -1,0 +1,272 @@
+[
+  {
+    "applicant_id": "SYN-0001",
+    "full_name": "Asha Kulkarni",
+    "dob_synthetic": "1990-01-01",
+    "declared_income": 85000,
+    "declared_employment": "Software Engineer, Acme Corp (synthetic)",
+    "prior_applications": 1,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0002",
+    "full_name": "Rohan Mehta",
+    "dob_synthetic": "1999-06-15",
+    "declared_income": 22000,
+    "declared_employment": "Freelance designer, synthetic gig platform",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0003",
+    "full_name": "Synthetic Watchlist TestCase",
+    "dob_synthetic": "1985-03-22",
+    "declared_income": 60000,
+    "declared_employment": "Synthetic test employer",
+    "prior_applications": 2,
+    "watchlist_hit": true
+  },
+  {
+    "applicant_id": "SYN-0004",
+    "full_name": "Priya Nair",
+    "dob_synthetic": "1987-11-09",
+    "declared_income": 120000,
+    "declared_employment": "Senior Consultant, Beta Solutions (synthetic)",
+    "prior_applications": 3,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0005",
+    "full_name": "Dev Sharma",
+    "dob_synthetic": "2001-04-30",
+    "declared_income": 18000,
+    "declared_employment": "Part-time retail, Gamma Stores (synthetic)",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0006",
+    "full_name": "Synthetic Applicant 0006",
+    "dob_synthetic": "1986-07-07",
+    "declared_income": 60000,
+    "declared_employment": "Standard Boundary 040 Test Employer (synthetic)",
+    "prior_applications": 2,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0007",
+    "full_name": "Synthetic Applicant 0007",
+    "dob_synthetic": "1987-08-08",
+    "declared_income": 60000,
+    "declared_employment": "Standard Above 040 Test Employer (synthetic)",
+    "prior_applications": 3,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0008",
+    "full_name": "Synthetic Applicant 0008",
+    "dob_synthetic": "1988-09-09",
+    "declared_income": 100000,
+    "declared_employment": "Premium Boundary 050 Test Employer (synthetic)",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0009",
+    "full_name": "Synthetic Applicant 0009",
+    "dob_synthetic": "1989-10-10",
+    "declared_income": 100000,
+    "declared_employment": "Premium Above 050 Test Employer (synthetic)",
+    "prior_applications": 1,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0010",
+    "full_name": "Synthetic Applicant 0010",
+    "dob_synthetic": "1990-11-11",
+    "declared_income": 50000,
+    "declared_employment": "Score 499 Test Employer (synthetic)",
+    "prior_applications": 2,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0011",
+    "full_name": "Synthetic Applicant 0011",
+    "dob_synthetic": "1991-12-12",
+    "declared_income": 50000,
+    "declared_employment": "Score 500 Test Employer (synthetic)",
+    "prior_applications": 3,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0012",
+    "full_name": "Synthetic Applicant 0012",
+    "dob_synthetic": "1992-01-13",
+    "declared_income": 50000,
+    "declared_employment": "Score 599 Test Employer (synthetic)",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0013",
+    "full_name": "Synthetic Applicant 0013",
+    "dob_synthetic": "1993-02-14",
+    "declared_income": 50000,
+    "declared_employment": "Score 600 Test Employer (synthetic)",
+    "prior_applications": 1,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0014",
+    "full_name": "Synthetic Applicant 0014",
+    "dob_synthetic": "1994-03-15",
+    "declared_income": 45000,
+    "declared_employment": "Thin Dti 030 Test Employer (synthetic)",
+    "prior_applications": 2,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0015",
+    "full_name": "Synthetic Applicant 0015",
+    "dob_synthetic": "1995-04-16",
+    "declared_income": 45000,
+    "declared_employment": "Thin Dti 060 Test Employer (synthetic)",
+    "prior_applications": 3,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0016",
+    "full_name": "Synthetic Applicant 0016",
+    "dob_synthetic": "1996-05-17",
+    "declared_income": 45000,
+    "declared_employment": "Thin Dti 061 Test Employer (synthetic)",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0017",
+    "full_name": "Synthetic Applicant 0017",
+    "dob_synthetic": "1997-06-18",
+    "declared_income": 75000,
+    "declared_employment": "Exact Premium Threshold Test Employer (synthetic)",
+    "prior_applications": 1,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0018",
+    "full_name": "Synthetic Applicant 0018",
+    "dob_synthetic": "1998-07-19",
+    "declared_income": 76000,
+    "declared_employment": "Just Over Premium Threshold Test Employer (synthetic)",
+    "prior_applications": 2,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0019",
+    "full_name": "Synthetic Applicant 0019",
+    "dob_synthetic": "1999-08-20",
+    "declared_income": 85000,
+    "declared_employment": "Strong High Accounts Test Employer (synthetic)",
+    "prior_applications": 3,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0020",
+    "full_name": "Synthetic Applicant 0020",
+    "dob_synthetic": "1980-09-21",
+    "declared_income": 30000,
+    "declared_employment": "Low Income Thin Test Employer (synthetic)",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0021",
+    "full_name": "Synthetic Applicant 0021",
+    "dob_synthetic": "1981-10-22",
+    "declared_income": 120000,
+    "declared_employment": "High Income Test Employer (synthetic)",
+    "prior_applications": 1,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0022",
+    "full_name": "Synthetic Applicant 0022",
+    "dob_synthetic": "1982-11-23",
+    "declared_income": 60000,
+    "declared_employment": "Watchlist High Score Test Employer (synthetic)",
+    "prior_applications": 2,
+    "watchlist_hit": true
+  },
+  {
+    "applicant_id": "SYN-0023",
+    "full_name": "Synthetic Applicant 0023",
+    "dob_synthetic": "1983-12-24",
+    "declared_income": 60000,
+    "declared_employment": "Watchlist Low Score Test Employer (synthetic)",
+    "prior_applications": 3,
+    "watchlist_hit": true
+  },
+  {
+    "applicant_id": "SYN-0024",
+    "full_name": "Synthetic Applicant 0024",
+    "dob_synthetic": "1984-01-25",
+    "declared_income": 90000,
+    "declared_employment": "Delinquency History Test Employer (synthetic)",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0025",
+    "full_name": "Synthetic Applicant 0025",
+    "dob_synthetic": "1985-02-26",
+    "declared_income": 40000,
+    "declared_employment": "No Open Accounts Test Employer (synthetic)",
+    "prior_applications": 1,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0026",
+    "full_name": "Synthetic Applicant 0026",
+    "dob_synthetic": "1986-03-27",
+    "declared_income": 50000,
+    "declared_employment": "Zero Outstanding Test Employer (synthetic)",
+    "prior_applications": 2,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0027",
+    "full_name": "Synthetic Applicant 0027",
+    "dob_synthetic": "1987-04-01",
+    "declared_income": 50000,
+    "declared_employment": "High Dti 055 Test Employer (synthetic)",
+    "prior_applications": 3,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0028",
+    "full_name": "Synthetic Applicant 0028",
+    "dob_synthetic": "1988-05-02",
+    "declared_income": 50000,
+    "declared_employment": "High Dti 060 Test Employer (synthetic)",
+    "prior_applications": 0,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0029",
+    "full_name": "Synthetic Applicant 0029",
+    "dob_synthetic": "1989-06-03",
+    "declared_income": 50000,
+    "declared_employment": "Low Score 300 Test Employer (synthetic)",
+    "prior_applications": 1,
+    "watchlist_hit": false
+  },
+  {
+    "applicant_id": "SYN-0030",
+    "full_name": "Synthetic Applicant 0030",
+    "dob_synthetic": "1990-07-04",
+    "declared_income": 50000,
+    "declared_employment": "Score 900 Test Employer (synthetic)",
+    "prior_applications": 2,
+    "watchlist_hit": false
+  }
+]

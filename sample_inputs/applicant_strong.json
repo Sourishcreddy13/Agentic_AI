@@ -1,0 +1,8 @@
+{
+  "applicant_id": "SYN-0001",
+  "full_name": "Asha Kulkarni",
+  "dob_synthetic": "1990-01-01",
+  "declared_income": 85000,
+  "declared_employment": "Software Engineer, synthetic employer Acme Corp",
+  "raw_free_text_notes": "I'd like a loan to renovate my kitchen next spring."
+}

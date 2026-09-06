@@ -1,0 +1,13 @@
+{
+  "scope": "Phase 5 live agentic-RAG suite",
+  "command": "PHASE5_LIVE=1 pytest -q tests/test_phase5_live.py",
+  "test_count_collected": 1,
+  "generated_at_utc": "2026-09-06T10:26:53.150431+00:00",
+  "exit_status": 0,
+  "passed": 1,
+  "failed": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xfailed": 0,
+  "xpassed": 0
+}

@@ -1,0 +1,22 @@
+# Environment / secrets
+.env
+
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+
+# Pytest
+.pytest_cache/
+
+# Local runtime / persistence data
+data/chroma_memory/
+data/chroma_rag/
+data/*.sqlite
+data/*.db
+
+# macOS
+.DS_Store

@@ -1,0 +1,19 @@
+{
+  "ac_reference": "AC-07",
+  "user_id": "AC07-USER",
+  "thread_id": "AC07-THREAD-A",
+  "facts": [
+    {
+      "fact_id": "AC07-EMPLOYMENT",
+      "user_id": "AC07-USER",
+      "fact_type": "employment",
+      "value": "Software Engineer (synthetic)",
+      "importance": 0.55,
+      "session_ts": "2026-09-05T00:00:00+00:00",
+      "thread_id": "AC07-THREAD-A",
+      "usage_count": 0,
+      "last_access_ts": null
+    }
+  ],
+  "offer_present": true
+}

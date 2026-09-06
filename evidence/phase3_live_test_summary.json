@@ -1,0 +1,13 @@
+{
+  "scope": "Phase 3 live integration suite",
+  "command": "PHASE3_LIVE=1 pytest -q tests/test_phase3_live.py",
+  "test_count_collected": 3,
+  "generated_at_utc": "2026-09-06T10:26:19.051862+00:00",
+  "exit_status": 0,
+  "passed": 3,
+  "failed": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xfailed": 0,
+  "xpassed": 0
+}

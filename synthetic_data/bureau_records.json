@@ -1,0 +1,242 @@
+[
+  {
+    "applicant_id": "SYN-0001",
+    "synthetic_score": 740,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 4,
+    "total_outstanding_synthetic": 12000
+  },
+  {
+    "applicant_id": "SYN-0002",
+    "synthetic_score": 490,
+    "delinquencies_24m": 0,
+    "thin_file": true,
+    "open_accounts": 1,
+    "total_outstanding_synthetic": 0
+  },
+  {
+    "applicant_id": "SYN-0003",
+    "synthetic_score": 620,
+    "delinquencies_24m": 1,
+    "thin_file": false,
+    "open_accounts": 3,
+    "total_outstanding_synthetic": 8500
+  },
+  {
+    "applicant_id": "SYN-0004",
+    "synthetic_score": 800,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 7,
+    "total_outstanding_synthetic": 35000
+  },
+  {
+    "applicant_id": "SYN-0005",
+    "synthetic_score": 410,
+    "delinquencies_24m": 0,
+    "thin_file": true,
+    "open_accounts": 0,
+    "total_outstanding_synthetic": 0
+  },
+  {
+    "applicant_id": "SYN-0006",
+    "synthetic_score": 700,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 4,
+    "total_outstanding_synthetic": 48000
+  },
+  {
+    "applicant_id": "SYN-0007",
+    "synthetic_score": 700,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 4,
+    "total_outstanding_synthetic": 48120
+  },
+  {
+    "applicant_id": "SYN-0008",
+    "synthetic_score": 700,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 5,
+    "total_outstanding_synthetic": 100000
+  },
+  {
+    "applicant_id": "SYN-0009",
+    "synthetic_score": 700,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 5,
+    "total_outstanding_synthetic": 100200
+  },
+  {
+    "applicant_id": "SYN-0010",
+    "synthetic_score": 499,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 3,
+    "total_outstanding_synthetic": 10000
+  },
+  {
+    "applicant_id": "SYN-0011",
+    "synthetic_score": 500,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 3,
+    "total_outstanding_synthetic": 10000
+  },
+  {
+    "applicant_id": "SYN-0012",
+    "synthetic_score": 599,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 3,
+    "total_outstanding_synthetic": 10000
+  },
+  {
+    "applicant_id": "SYN-0013",
+    "synthetic_score": 600,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 3,
+    "total_outstanding_synthetic": 10000
+  },
+  {
+    "applicant_id": "SYN-0014",
+    "synthetic_score": 490,
+    "delinquencies_24m": 0,
+    "thin_file": true,
+    "open_accounts": 1,
+    "total_outstanding_synthetic": 27000
+  },
+  {
+    "applicant_id": "SYN-0015",
+    "synthetic_score": 490,
+    "delinquencies_24m": 0,
+    "thin_file": true,
+    "open_accounts": 1,
+    "total_outstanding_synthetic": 54000
+  },
+  {
+    "applicant_id": "SYN-0016",
+    "synthetic_score": 490,
+    "delinquencies_24m": 0,
+    "thin_file": true,
+    "open_accounts": 1,
+    "total_outstanding_synthetic": 54900
+  },
+  {
+    "applicant_id": "SYN-0017",
+    "synthetic_score": 700,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 4,
+    "total_outstanding_synthetic": 60000
+  },
+  {
+    "applicant_id": "SYN-0018",
+    "synthetic_score": 700,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 4,
+    "total_outstanding_synthetic": 60800
+  },
+  {
+    "applicant_id": "SYN-0019",
+    "synthetic_score": 760,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 10,
+    "total_outstanding_synthetic": 14280
+  },
+  {
+    "applicant_id": "SYN-0020",
+    "synthetic_score": 430,
+    "delinquencies_24m": 0,
+    "thin_file": true,
+    "open_accounts": 1,
+    "total_outstanding_synthetic": 3000
+  },
+  {
+    "applicant_id": "SYN-0021",
+    "synthetic_score": 820,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 9,
+    "total_outstanding_synthetic": 57600
+  },
+  {
+    "applicant_id": "SYN-0022",
+    "synthetic_score": 780,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 6,
+    "total_outstanding_synthetic": 12000
+  },
+  {
+    "applicant_id": "SYN-0023",
+    "synthetic_score": 480,
+    "delinquencies_24m": 1,
+    "thin_file": true,
+    "open_accounts": 1,
+    "total_outstanding_synthetic": 12000
+  },
+  {
+    "applicant_id": "SYN-0024",
+    "synthetic_score": 680,
+    "delinquencies_24m": 3,
+    "thin_file": false,
+    "open_accounts": 5,
+    "total_outstanding_synthetic": 36000
+  },
+  {
+    "applicant_id": "SYN-0025",
+    "synthetic_score": 620,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 0,
+    "total_outstanding_synthetic": 4800
+  },
+  {
+    "applicant_id": "SYN-0026",
+    "synthetic_score": 680,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 3,
+    "total_outstanding_synthetic": 0
+  },
+  {
+    "applicant_id": "SYN-0027",
+    "synthetic_score": 680,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 4,
+    "total_outstanding_synthetic": 55000
+  },
+  {
+    "applicant_id": "SYN-0028",
+    "synthetic_score": 680,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 4,
+    "total_outstanding_synthetic": 60000
+  },
+  {
+    "applicant_id": "SYN-0029",
+    "synthetic_score": 300,
+    "delinquencies_24m": 0,
+    "thin_file": true,
+    "open_accounts": 0,
+    "total_outstanding_synthetic": 10000
+  },
+  {
+    "applicant_id": "SYN-0030",
+    "synthetic_score": 900,
+    "delinquencies_24m": 0,
+    "thin_file": false,
+    "open_accounts": 8,
+    "total_outstanding_synthetic": 10000
+  }
+]

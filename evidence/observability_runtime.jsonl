@@ -1,0 +1,5 @@
+{"event":"node_started","node":"credit_assessment","provider":"gemini-primary","user_id":"sha256:synthetic-user","thread_id":"sha256:synthetic-thread","message_count":1}
+{"event":"mcp_tool_started","tool":"bureau_check","user_id":"sha256:synthetic-user","thread_id":"sha256:synthetic-thread"}
+{"event":"mcp_tool_completed","tool":"bureau_check","result_count":1,"success":true,"user_id":"sha256:synthetic-user","thread_id":"sha256:synthetic-thread"}
+{"event":"llm_invocation_completed","provider":"gemini-primary","schema":"CreditRationale","success":true,"user_id":"sha256:synthetic-user","thread_id":"sha256:synthetic-thread"}
+{"event":"node_completed","node":"credit_assessment","output_fields":["credit_assessment","next_node"],"user_id":"sha256:synthetic-user","thread_id":"sha256:synthetic-thread"}

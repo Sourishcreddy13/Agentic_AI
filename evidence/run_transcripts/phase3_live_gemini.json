@@ -1,0 +1,10 @@
+{
+  "ac_reference": "AC-04",
+  "scenario": "real Gemini full graph",
+  "thread_id": "phase3-live-gemini",
+  "provider": "gemini-primary",
+  "path": "supervisor -> intake -> kyc_check -> credit_assessment -> offer_draft -> END",
+  "kyc_status": "pass",
+  "credit_decision": "approve",
+  "offer_principal": 1200000.0
+}

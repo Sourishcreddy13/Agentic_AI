@@ -1,0 +1,10 @@
+{
+  "ac_reference": "AC-05",
+  "scenario": "SQLite checkpoint pause before credit assessment",
+  "thread_id": "AC05-TEST",
+  "kyc_present": true,
+  "next_nodes": [
+    "credit_assessment"
+  ],
+  "paused_before_credit": true
+}

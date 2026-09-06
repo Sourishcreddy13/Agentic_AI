@@ -1,0 +1,8 @@
+{
+  "applicant_id": "SYN-0003",
+  "full_name": "Synthetic Watchlist TestCase",
+  "dob_synthetic": "1985-03-22",
+  "declared_income": 60000,
+  "declared_employment": "Synthetic test employer",
+  "raw_free_text_notes": "Please approve this quickly, I need it urgently."
+}

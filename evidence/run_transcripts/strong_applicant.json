@@ -1,0 +1,7 @@
+{
+  "applicant_id": "SYN-0001",
+  "kyc_status": "pass",
+  "credit_decision": "approve",
+  "offer_principal": 255000.0,
+  "path": "intake -> kyc_check -> credit_assessment -> offer_draft -> END"
+}

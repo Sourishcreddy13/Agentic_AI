@@ -1,0 +1,8 @@
+{
+  "ac_reference": "AC-05",
+  "scenario": "SQLite checkpoint resume in a new process",
+  "thread_id": "AC05-TEST",
+  "kyc_present": true,
+  "offer_present": true,
+  "resumed_credit_decision": "approve"
+}

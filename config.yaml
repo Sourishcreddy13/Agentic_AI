@@ -1,0 +1,42 @@
+llm:
+  primary:
+    provider: gemini
+    model: gemini-3.8-flash
+    request_timeout_seconds: 60
+    max_retries: 1
+    thinking_level: medium
+
+  fallback:
+    provider: groq
+    model: openai/gpt-oss-120b
+    request_timeout_seconds: 60
+    max_retries: 1
+
+agents:
+  intake:
+    llm_enabled: true
+  kyc:
+    llm_enabled: true
+  credit:
+    llm_enabled: true
+  offer:
+    llm_enabled: true
+
+mcp:
+  server_name: loan-origination
+  transport: stdio
+
+memory:
+  checkpoint_db: data/checkpoints.sqlite
+  chroma_persist_directory: data/chroma_memory
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+
+rag:
+  persist_directory: data/chroma_rag
+  collection_name: lending_policy
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  default_top_k: 3
+
+observability:
+  enabled: true
+  log_file: data/logs/loan_origination.jsonl

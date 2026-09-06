@@ -1,0 +1,24 @@
+{
+  "ac_reference": "AC-11",
+  "scenario": "live agentic lending-policy retrieval",
+  "provider": "groq-fallback",
+  "tool": "lending_policy_search",
+  "called": true,
+  "status": "retrieved",
+  "queries": [
+    "standard income tier DTI limit policy"
+  ],
+  "result_clause_ids": [
+    "policy_02_dti_ratios::dti_calculation_for_variable_income"
+  ],
+  "result_count": 1,
+  "result_snippets": [
+    {
+      "clause_id": "policy_02_dti_ratios::dti_calculation_for_variable_income",
+      "policy_id": "DTI-001",
+      "heading": "DTI Calculation for Variable Income",
+      "score": 0.638
+    }
+  ],
+  "steps": 2
+}

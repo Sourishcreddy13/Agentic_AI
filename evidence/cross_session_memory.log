@@ -1,0 +1,13 @@
+{
+  "ac_reference": "AC-07",
+  "user_id": "AC07-USER",
+  "current_thread_id": "AC07-THREAD-B",
+  "recalled": [
+    "approve",
+    "Software Engineer, synthetic employer Acme Corp",
+    "over_75k",
+    "36",
+    "pass"
+  ],
+  "source_thread": "AC07-THREAD-A"
+}

@@ -1,0 +1,11 @@
+{
+  "ac_reference": "NFR-07",
+  "scenario": "real Groq fallback completes full graph",
+  "thread_id": "phase3-live-groq-fallback",
+  "provider": "groq-fallback",
+  "gemini_behavior": "deliberately failed in test",
+  "path": "supervisor -> intake -> kyc_check -> credit_assessment -> offer_draft -> END",
+  "kyc_status": "pass",
+  "credit_decision": "approve",
+  "offer_principal": 500000.0
+}

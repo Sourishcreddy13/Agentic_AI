@@ -1,0 +1,41 @@
+{
+  "ac_reference": "AC-12",
+  "scenario": "MCP bureau_check failure triggers reflection loop",
+  "thread_id": "AC-12-mcp-failure",
+  "mcp_calls_attempted": [
+    {
+      "tool": "bureau_check",
+      "args": {
+        "applicant_id": "SYN-0001",
+        "declared_income": 85000.0
+      }
+    },
+    {
+      "tool": "bureau_check",
+      "args": {
+        "applicant_id": "SYN-0001",
+        "declared_income": 85000.0
+      }
+    }
+  ],
+  "retry_count_final": 2,
+  "reflection_log": [
+    {
+      "triggered_by": "mcp_bureau_check_failure",
+      "action_taken": "retry",
+      "detail": "bureau_check MCP call failed: synthetic MCP bureau_check outage"
+    },
+    {
+      "triggered_by": "mcp_bureau_check_failure",
+      "action_taken": "retry",
+      "detail": "bureau_check MCP call failed: synthetic MCP bureau_check outage"
+    },
+    {
+      "triggered_by": "max_retries_exceeded",
+      "action_taken": "escalate_to_human",
+      "detail": "Exceeded 2 retries; escalating to a human officer."
+    }
+  ],
+  "credit_assessment": null,
+  "outcome": "escalated_to_human \u2014 no credit decision issued from failed MCP data"
+}

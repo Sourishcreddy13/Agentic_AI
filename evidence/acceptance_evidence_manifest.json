@@ -1,0 +1,20 @@
+{
+  "AC-01": {"test": "tests/test_state_schema.py", "artifact": "src/state/schema.py"},
+  "AC-02": {"test": "tests/test_routing.py", "artifact": "evidence/run_transcripts/strong_applicant.json"},
+  "AC-03": {"test": "tests/test_routing.py", "artifact": "evidence/run_transcripts/strong_applicant.json"},
+  "AC-04": {"test": "tests/test_llm_gateway.py", "artifact": "evidence/run_transcripts/phase3_live_gemini.json"},
+  "AC-05": {"test": "tests/test_checkpoint_resume.py", "artifact": "checkpoint_pause.json"},
+  "AC-06": {"test": "tests/test_same_session_memory.py", "artifact": "ac06_same_session_memory.json"},
+  "AC-07": {"test": "tests/test_cross_session_memory.py", "artifact": "cross_session_memory.log"},
+  "AC-08": {"test": "tests/test_eviction_policy.py", "artifact": "docs/memory-policy.md"},
+  "AC-09": {"test": "tests/test_mcp_tools.py", "artifact": "evidence/mcp_transcript.json"},
+  "AC-10": {"test": "tests/test_mcp_adapter.py", "artifact": "evidence/mcp_transcript.json"},
+  "AC-11": {"test": "tests/test_phase5_live.py", "artifact": "evidence/run_transcripts/phase5_agentic_rag.json"},
+  "AC-12": {"test": "tests/test_reflection_loop.py", "artifact": "evidence/reflection_trace.json"},
+  "NFR-02": {"test": "pytest", "artifact": "evidence/test_run_summary.json"},
+  "NFR-03": {"test": "tests/test_quarantine.py", "artifact": "src/context/quarantine.py"},
+  "NFR-04": {"test": "tests/test_observability.py", "artifact": "evidence/observability_runtime.jsonl"},
+  "NFR-05": {"test": "tests/test_observability.py", "artifact": "evidence/observability_redaction.json"},
+  "NFR-07": {"test": "tests/test_reflection_loop.py", "artifact": "evidence/reflection_trace.json"},
+  "NFR-08": {"test": "tests/test_context_engineering.py", "artifact": "src/context/compress.py"}
+}

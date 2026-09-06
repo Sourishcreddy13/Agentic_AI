@@ -1,0 +1,12 @@
+{
+  "ac_reference": "AC-10",
+  "thread_id": "phase2-strong",
+  "path": "supervisor -> intake -> kyc_check[MCP applicant_lookup] -> credit_assessment[MCP bureau_check] -> offer_draft -> END",
+  "mcp_tools_used_by_graph": [
+    "applicant_lookup",
+    "bureau_check"
+  ],
+  "kyc_status": "pass",
+  "bureau_score_synthetic": 740,
+  "credit_decision": "approve"
+}

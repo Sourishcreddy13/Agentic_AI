@@ -1,0 +1,101 @@
+{
+  "ac_reference": "AC-09/AC-10",
+  "session_id": "transcript-1788690241",
+  "timestamp": "2026-09-06T10:24:01Z",
+  "server": "loan-origination-mcp",
+  "adapter": "langchain-mcp-adapters v0.3.2",
+  "transport": "stdio",
+  "tools_available": [
+    "applicant_lookup",
+    "bureau_check",
+    "lending_policy_search"
+  ],
+  "resources_available": [
+    "policy://credit_policy_manual"
+  ],
+  "tool_calls": [
+    {
+      "call_number": 1,
+      "tool": "applicant_lookup",
+      "input": {
+        "applicant_id": "SYN-0001"
+      },
+      "output": [
+        {
+          "type": "text",
+          "text": "{\n  \"applicant_id\": \"SYN-0001\",\n  \"found\": true,\n  \"prior_applications\": 1,\n  \"synthetic_watchlist_hit\": false\n}",
+          "id": "lc_3c914d6e-f5eb-4044-a276-d3993d53febf"
+        }
+      ],
+      "latency_ms": 278
+    },
+    {
+      "call_number": 2,
+      "tool": "bureau_check",
+      "input": {
+        "applicant_id": "SYN-0001",
+        "declared_income": 85000
+      },
+      "output": [
+        {
+          "type": "text",
+          "text": "{\n  \"applicant_id\": \"SYN-0001\",\n  \"found_in_bureau\": true,\n  \"synthetic_score\": 740,\n  \"delinquencies_24m\": 0,\n  \"thin_file\": false,\n  \"dti_estimate\": 0.071\n}",
+          "id": "lc_bb31f887-7684-49bd-a817-97c39fc8a339"
+        }
+      ],
+      "latency_ms": 277
+    },
+    {
+      "call_number": 3,
+      "tool": "applicant_lookup",
+      "input": {
+        "applicant_id": "SYN-0002"
+      },
+      "output": [
+        {
+          "type": "text",
+          "text": "{\n  \"applicant_id\": \"SYN-0002\",\n  \"found\": true,\n  \"prior_applications\": 0,\n  \"synthetic_watchlist_hit\": false\n}",
+          "id": "lc_d14edfbb-3825-4e67-be20-05ff2c8bd632"
+        }
+      ],
+      "latency_ms": 279
+    },
+    {
+      "call_number": 4,
+      "tool": "lending_policy_search",
+      "input": {
+        "query": "thin file manual underwriting DTI limit",
+        "k": 3
+      },
+      "output": [
+        {
+          "type": "text",
+          "text": "{\n  \"clause_id\": \"policy_02_dti_ratios::thin_file_applicants\",\n  \"policy_id\": \"DTI-001\",\n  \"heading\": \"Thin-File Applicants\",\n  \"source_file\": \"policy_02_dti_ratios.md\",\n  \"snippet\": \"# CLAUSE: DTI-001 \u2014 Debt-to-Income Ratio Limits **Policy ID:** DTI-001   **Effective:** 2025-01-01   **Applies to:** All personal loan products  ## Thin-File Applicants Applicants with insufficient credit history (thin-file, bureau score < 500) are subject to a reduced DTI cap of 0.30 regardless of income tier. Any thin-file application with DTI between 0.30 and 0.50 must be referred to the manual underwriting team.\",\n  \"score\": 0.6995\n}",
+          "id": "lc_6ce703c5-8071-4194-9bf8-8f7ca1ffc795"
+        },
+        {
+          "type": "text",
+          "text": "{\n  \"clause_id\": \"policy_04_thin_file::offer_constraints_for_thin_file_approvals\",\n  \"policy_id\": \"THIN-001\",\n  \"heading\": \"Offer Constraints for Thin-File Approvals\",\n  \"source_file\": \"policy_04_thin_file.md\",\n  \"snippet\": \"# CLAUSE: THIN-001 \u2014 Thin-File Applicant Handling **Policy ID:** THIN-001   **Effective:** 2025-01-01   **Applies to:** Personal loan applicants with bureau score below 500 or                 fewer than 3 active credit accounts in the past 24 months  ## Offer Constraints for Thin-File Approvals If the manual underwriting team approves a thin-file application, the following constraints apply: - Maximum principal: INR 100,000 - Maximum term: 24 months - Minimum APR: 14% (risk premium) - Mandatory 6-month review clause\",\n  \"score\": 0.5468\n}",
+          "id": "lc_6fb906f3-43e5-4844-aa5e-190bb92ed3b8"
+        },
+        {
+          "type": "text",
+          "text": "{\n  \"clause_id\": \"policy_04_thin_file::decline_conditions\",\n  \"policy_id\": \"THIN-001\",\n  \"heading\": \"Decline Conditions\",\n  \"source_file\": \"policy_04_thin_file.md\",\n  \"snippet\": \"# CLAUSE: THIN-001 \u2014 Thin-File Applicant Handling **Policy ID:** THIN-001   **Effective:** 2025-01-01   **Applies to:** Personal loan applicants with bureau score below 500 or                 fewer than 3 active credit accounts in the past 24 months  ## Decline Conditions Thin-file applicants are declined (without manual review) only if: - KYC has already failed, OR - DTI ratio exceeds 0.60\",\n  \"score\": 0.5331\n}",
+          "id": "lc_affd3e22-1fe4-4d73-9cc5-2ded202623b8"
+        }
+      ],
+      "latency_ms": 10587,
+      "note": "MCP policy-search tool exposed by the server. Discretionary agentic-RAG behavior is evidenced separately by AC-11."
+    }
+  ],
+  "resource_calls": [
+    {
+      "call_number": 1,
+      "resource": "policy://credit_policy_manual",
+      "retrieved": true,
+      "content_type": "text",
+      "content_length": 2677,
+      "latency_ms": 356
+    }
+  ]
+}

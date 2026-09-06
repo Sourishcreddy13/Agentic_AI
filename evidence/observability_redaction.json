@@ -1,0 +1,19 @@
+{
+  "nfr_references": ["NFR-04", "NFR-05"],
+  "scenario": "privacy-safe structured runtime logging",
+  "event_type": "llm_invocation_completed",
+  "identifier_strategy": "SHA-256 fingerprint",
+  "raw_prompt_logged": false,
+  "raw_message_logged": false,
+  "raw_applicant_name_logged": false,
+  "raw_income_logged": false,
+  "raw_email_logged": false,
+  "sample_log_record": {
+    "event": "llm_invocation_completed",
+    "provider": "gemini-primary",
+    "schema": "CreditRationale",
+    "success": true,
+    "user_id": "sha256:synthetic-fingerprint",
+    "thread_id": "sha256:synthetic-thread"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "ac_reference": "AC-06",
+  "scenario": "same-session prior-turn semantic memory recall",
+  "user_id": "AC06-USER",
+  "thread_id": "AC06-THREAD",
+  "prior_turn_fact": {
+    "fact_type": "employment",
+    "value": "Software Engineer (synthetic)"
+  },
+  "later_turn_recalled": true,
+  "recalled_values": [
+    "Software Engineer (synthetic)"
+  ],
+  "decision_authority_changed": false
+}
