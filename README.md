@@ -42,9 +42,6 @@ python cli.py
 ```
 
 **Run against a specific synthetic application:**
-## Usage
-Provide short, scannable examples of the software running in production or development.
-
 If you need to add, update, or delete sample inputs, visit the folder `sample_inputs/`.
 ```bash
 python cli.py --input sample_inputs/applicant_strong.json
