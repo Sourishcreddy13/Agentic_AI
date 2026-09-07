@@ -12,7 +12,11 @@ Every value in RETRYABLE / REPLAN / ESCALATE below is a `ReflectionNote.
 triggered_by` value that can legitimately be the *last* entry in
 reflection_log when reflector_node runs, because reflector_node's own
 classification logic reads exactly that last entry to decide what to do
-next. Two related but distinct conditions — a KYC-fail referral, and a
+next. Intake and offer-drafting are deterministic Python (no LLM call), so
+neither produces a distinct failure trigger of its own any more; an intake
+shape mismatch on unexpected input still surfaces as REPLAN's
+`intake_validation_error`, and offer construction has no failure path left
+to classify. Two related but distinct conditions — a KYC-fail referral, and a
 detected prompt-injection attempt in applicant free text — are NOT included
 here even though they are escalation-worthy: they are compliance events
 that must be visible for audit without ever being able to influence this
@@ -43,8 +47,6 @@ RETRYABLE: frozenset[str] = frozenset({
     "llm_kyc_failure",
     "llm_credit_failure",
     "llm_rationale_failure",
-    "llm_offer_failure",
-    "llm_intake_failure",
     "credit_assembly_error",
     "low_confidence_or_missing_output",
 })

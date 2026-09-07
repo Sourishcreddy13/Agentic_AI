@@ -1,4 +1,12 @@
-"""Deterministic test doubles and hermetic memory behavior for Phases 1–4."""
+"""Deterministic test doubles and hermetic memory behavior for Phases 1-4.
+
+Intake and offer-drafting no longer call an LLM at all (both are
+deterministic Python), so they are not part of the monkeypatched-module list
+below; ApplicantProfile/OfferDraft branches in fake_structured() are kept for
+any caller that still exercises the gateway contract directly with those
+schemas (e.g. gateway-level tests), even though the two former callers no
+longer do.
+"""
 from __future__ import annotations
 import os
 import json
@@ -92,10 +100,8 @@ def deterministic_phase_models(monkeypatch, request):
 
     if not is_live:
         for module_name in (
-            "src.agents.intake_agent",
             "src.agents.kyc_agent",
             "src.agents.credit_agent",
-            "src.agents.offer_agent",
         ):
             module = __import__(module_name, fromlist=["invoke_structured_with_fallback"])
             monkeypatch.setattr(module, "invoke_structured_with_fallback", fake_structured)

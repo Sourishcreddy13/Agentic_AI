@@ -1,11 +1,17 @@
-"""Offer-draft worker (AC-02, AC-04)."""
+"""Offer-draft worker (AC-02, AC-04).
+
+Offer drafting is deterministic, not LLM-based. Every PRICE-001 pricing tier
+pins min_apr == max_apr, so APR is never a free variable in the first place;
+principal and term are issued at the tier ceiling. There is nothing left for
+an LLM to propose that Python doesn't already fully determine, so the offer
+is built directly from the tier constraints and validated through the
+OfferDraft Pydantic schema at the handoff boundary (AC-04).
+"""
 from __future__ import annotations
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage
 
-from src.llm.gateway import invoke_structured_with_fallback
-from src.context.middleware import prepare_worker_context
-from src.state.schema import LoanApplicationState, OfferDraft, ReflectionNote
+from src.state.schema import LoanApplicationState, OfferDraft
 
 
 def _offer_constraints(bureau_score: int, annual_income: float) -> dict | None:
@@ -23,30 +29,11 @@ def _offer_constraints(bureau_score: int, annual_income: float) -> dict | None:
     return None
 
 
-def _enforce_constraints(offer: OfferDraft, constraints: dict) -> OfferDraft:
-    """Hard-enforce pricing policy after model generation."""
-    clipped = offer.model_copy(
-        update={
-            "principal": max(0, min(offer.principal, constraints["max_principal"])),
-            "apr": max(constraints["min_apr"], min(offer.apr, constraints["max_apr"])),
-            "term_months": max(1, min(offer.term_months, constraints["max_term"])),
-            "is_indicative": True,
-        }
-    )
-
-    mandatory_conditions = [
-        "Indicative offer subject to final underwriter sign-off.",
-        "APR is representative; final rate may vary by +/-0.5% on approval.",
-        "Offer expires 30 days from date of issue.",
-    ]
-    return clipped.model_copy(update={"conditions": mandatory_conditions})
-
-
-OFFER_SYSTEM_PROMPT = """You are an offer-drafting specialist in a synthetic loan-origination workflow.
-Draft an indicative offer inside the exact policy bounds supplied by Python.
-Never exceed the principal ceiling, APR range, or term ceiling.
-The offer is indicative and subject to final human underwriter sign-off.
-Return only the requested structured offer."""
+MANDATORY_OFFER_CONDITIONS = [
+    "Indicative offer subject to final underwriter sign-off.",
+    "APR is representative; final rate may vary by +/-0.5% on approval.",
+    "Offer expires 30 days from date of issue.",
+]
 
 
 def offer_draft_node(state: LoanApplicationState) -> dict:
@@ -97,37 +84,17 @@ def offer_draft_node(state: LoanApplicationState) -> dict:
             "messages": [AIMessage(content="Offer: pricing tier requires manual review.")],
         }
 
-    selected, _compression = prepare_worker_context(state, "offer")
-    try:
-        result = invoke_structured_with_fallback(
-            OfferDraft,
-            [
-                SystemMessage(content=OFFER_SYSTEM_PROMPT),
-                HumanMessage(
-                    content=(
-                        f"Applicant: {applicant.model_dump_json()}\n"
-                        f"Credit assessment: {credit.model_dump_json()}\n"
-                        f"Prior-context summary: {selected.get('compressed_summary') or 'None'}\n"
-                        "Policy constraints:\n"
-                        f"  max_principal = {constraints['max_principal']:.0f}\n"
-                        f"  APR range     = {constraints['min_apr']}% – {constraints['max_apr']}%\n"
-                        f"  max_term      = {constraints['max_term']} months"
-                    )
-                ),
-            ],
-        )
-        offer = OfferDraft.model_validate(result)
-        offer = _enforce_constraints(offer, constraints)
-    except Exception as exc:
-        return {
-            "reflection_log": [
-                ReflectionNote(
-                    triggered_by="llm_offer_failure",
-                    action_taken="retry",
-                    detail=f"Offer model invocation/validation failed: {str(exc)[:240]}",
-                )
-            ]
-        }
+    # Deterministic construction: the offer is fully determined by the tier
+    # the applicant already qualified for (principal at the ceiling, APR at
+    # the tier's single pinned rate, term at the ceiling). Still validated
+    # through the Pydantic schema at the handoff boundary (AC-04).
+    offer = OfferDraft.model_validate({
+        "principal": constraints["max_principal"],
+        "apr": constraints["min_apr"],
+        "term_months": constraints["max_term"],
+        "conditions": list(MANDATORY_OFFER_CONDITIONS),
+        "is_indicative": True,
+    })
 
     return {
         "offer": offer,

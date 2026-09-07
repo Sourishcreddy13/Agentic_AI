@@ -4,7 +4,7 @@ llm:
     model: gemini-3.8-flash
     request_timeout_seconds: 60
     max_retries: 1
-    thinking_level: medium
+    thinking_level: low
 
   fallback:
     provider: groq

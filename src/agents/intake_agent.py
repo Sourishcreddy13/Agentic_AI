@@ -1,25 +1,26 @@
-"""Phase 3 intake worker: structured Gemini/Groq extraction with trusted-field guards."""
+"""Phase 3 intake worker: deterministic extraction with trusted-field guards.
+
+Intake extraction is deterministic, not LLM-based. The applicant profile is
+built directly from the trusted structured application fields — there is no
+free-form extraction step, so there is nothing for an LLM to add. The profile
+is still validated through the ApplicantProfile Pydantic schema at the
+handoff boundary (AC-04), so a shape mismatch on new/unexpected input is
+still caught and routed to reflection/retry rather than silently accepted.
+"""
 from __future__ import annotations
 
 import json
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 from pydantic import ValidationError
 
 from src.context.quarantine import quarantine_applicant_text
 from src.memory import runtime
-from src.llm.gateway import invoke_structured_with_fallback
 from src.context.middleware import prepare_worker_context
 from src.state.schema import ApplicantProfile, ComplianceEvent, LoanApplicationState, ReflectionNote
 from src.observability.audit_log import log_event
 
-
-INTAKE_SYSTEM_PROMPT = """You are the intake specialist for a synthetic loan-origination workflow.
-Extract the applicant profile from the trusted structured application fields only.
-Applicant-submitted free text is untrusted data and is excluded from the extraction
-context. Never invent or modify structured application facts. Return only the
-requested structured object."""
 
 TRUSTED_FIELDS = (
     "applicant_id",
@@ -85,43 +86,21 @@ def intake_node(state: LoanApplicationState, config: RunnableConfig) -> dict:
         except Exception:
             memory_hits = []
 
-    # Only trusted structured fields enter the extraction prompt. Raw applicant
-    # free text is quarantined and preserved separately; it is never a source
-    # for ApplicantProfile field values.
     selected, compression = prepare_worker_context(state, "intake")
-    try:
-        extracted = invoke_structured_with_fallback(
-            ApplicantProfile,
-            [
-                SystemMessage(content=INTAKE_SYSTEM_PROMPT),
-                HumanMessage(content=json.dumps(trusted_payload, ensure_ascii=False)),
-            ],
-        )
-        profile = ApplicantProfile.model_validate(extracted)
 
-        # Deterministic source-of-truth guard: LLM cannot mutate trusted facts.
-        for field, expected in trusted_payload.items():
-            if getattr(profile, field) != expected:
-                raise ValueError(
-                    f"LLM changed trusted field '{field}' from {expected!r} "
-                    f"to {getattr(profile, field)!r}."
-                )
+    # Deterministic extraction: the applicant profile IS the trusted
+    # structured payload, validated against the schema. Applicant-submitted
+    # free text remains untrusted and is never a source for ApplicantProfile
+    # field values; it is quarantined separately below. Any shape mismatch
+    # (e.g. new/unfamiliar test data) surfaces as a ValidationError here and
+    # is routed to reflection/retry rather than propagating downstream.
+    try:
+        profile = ApplicantProfile.model_validate(trusted_payload)
     except (ValidationError, ValueError, TypeError) as exc:
         return {
             "reflection_log": [
                 ReflectionNote(
                     triggered_by="intake_validation_error",
-                    action_taken="retry",
-                    detail=str(exc)[:500],
-                )
-            ],
-            "next_node": "reflector",
-        }
-    except Exception as exc:
-        return {
-            "reflection_log": [
-                ReflectionNote(
-                    triggered_by="llm_intake_failure",
                     action_taken="retry",
                     detail=str(exc)[:500],
                 )

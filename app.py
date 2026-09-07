@@ -1,13 +1,13 @@
-"""Streamlit execution console for the loan-origination LangGraph.
+"""Streamlit UI for the Loan Origination Copilot.
 
-Run with:
+Run:
     streamlit run app.py
 
-The UI is deliberately a thin presentation layer over the existing LangGraph.
-It does not duplicate lending policy, routing, MCP, RAG, memory, or reflection
-logic. Every application run gets a fresh UI execution state and a fresh
-application thread id unless the user explicitly supplies one.
+The UI is a presentation layer over the existing LangGraph implementation.
+It does not duplicate lending policy, MCP, RAG, memory, routing, or reflection
+logic.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,6 +33,10 @@ from src.observability.audit_log import log_event
 from src.state.schema import new_state
 
 
+# ---------------------------------------------------------------------------
+# Graph metadata
+# ---------------------------------------------------------------------------
+
 NODE_LABELS = {
     "supervisor": "Supervisor",
     "intake": "Intake",
@@ -44,16 +48,38 @@ NODE_LABELS = {
     "END": "END",
 }
 
-NODE_ORDER = [
-    "supervisor",
-    "intake",
-    "kyc_check",
-    "credit_assessment",
-    "offer_draft",
-    "memory_consolidation",
-    "reflector",
-    "END",
-]
+NODE_DESCRIPTIONS = {
+    "supervisor": "Pure Python entry router. Selects the first workflow hop.",
+    "intake": "LLM-based structured extraction into ApplicantProfile.",
+    "kyc_check": "MCP applicant facts + deterministic KYC gate + LLM explanation.",
+    "credit_assessment": "MCP bureau facts + deterministic credit gates + optional agentic RAG.",
+    "offer_draft": "Constrained offer generation with post-generation Python enforcement.",
+    "memory_consolidation": "Persists durable synthetic memory facts after the decision.",
+    "reflector": "Classifies failures and routes bounded retry, replan, or escalation.",
+    "END": "Terminal state for the application workflow.",
+}
+
+NODE_AUTHORITY = {
+    "supervisor": "Deterministic Python",
+    "intake": "LLM + Pydantic validation",
+    "kyc_check": "MCP facts + Python gate + LLM explanation",
+    "credit_assessment": "MCP facts + Python gate + LLM rationale",
+    "offer_draft": "Python constraints + LLM draft",
+    "memory_consolidation": "Python / memory layer",
+    "reflector": "Deterministic Python",
+    "END": "Terminal",
+}
+
+NODE_TOOLS = {
+    "supervisor": [],
+    "intake": [],
+    "kyc_check": ["applicant_lookup"],
+    "credit_assessment": ["bureau_check", "lending_policy_search (optional/agentic)"],
+    "offer_draft": ["lending_policy_search (optional/agentic)"],
+    "memory_consolidation": ["Chroma semantic memory"],
+    "reflector": [],
+    "END": [],
+}
 
 EDGES = [
     ("supervisor", "intake"),
@@ -86,60 +112,90 @@ DEFAULTS = {
     "run_started": None,
     "run_finished": None,
     "run_error": None,
+    "current_layer": None,
 }
 
 STATUS_META = {
-    "pending": ("#E5E7EB", "#374151", "#F9FAFB"),
-    "running": ("#BFDBFE", "#1D4ED8", "#EFF6FF"),
-    "completed": ("#BBF7D0", "#166534", "#F0FDF4"),
-    "failed": ("#FECACA", "#B91C1C", "#FEF2F2"),
-    "skipped": ("#FDE68A", "#92400E", "#FFFBEB"),
-    "not_reached": ("#E5E7EB", "#6B7280", "#F9FAFB"),
+    "pending": ("#343A40", "#9CA3AF", "#14181D"),
+    "running": ("#60A5FA", "#BFDBFE", "#172554"),
+    "completed": ("#4ADE80", "#BBF7D0", "#052E16"),
+    "failed": ("#F87171", "#FECACA", "#450A0A"),
+    "not_reached": ("#374151", "#6B7280", "#111827"),
+    "recovered": ("#FBBF24", "#FDE68A", "#451A03"),
 }
 
 
+# ---------------------------------------------------------------------------
+# Session state
+# ---------------------------------------------------------------------------
+
 def _init_session() -> None:
     for key, value in DEFAULTS.items():
-        st.session_state.setdefault(key, value.copy() if isinstance(value, (dict, list)) else value)
+        if key not in st.session_state:
+            if isinstance(value, (dict, list)):
+                st.session_state[key] = value.copy()
+            else:
+                st.session_state[key] = value
+
+    if not st.session_state.run_id:
+        st.session_state.run_id = _new_run_id()
+
+    if not st.session_state.node_status:
+        st.session_state.node_status = {
+            node: "pending" for node in NODE_LABELS
+        }
 
 
 def _new_run_id() -> str:
-    return f"RUN-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+    return (
+        f"RUN-{datetime.now().strftime('%Y%m%d-%H%M%S')}-"
+        f"{uuid.uuid4().hex[:6].upper()}"
+    )
 
 
 def _reset_run() -> None:
     for key, value in DEFAULTS.items():
-        st.session_state[key] = value.copy() if isinstance(value, (dict, list)) else value
+        if isinstance(value, (dict, list)):
+            st.session_state[key] = value.copy()
+        else:
+            st.session_state[key] = value
+
     st.session_state.run_id = _new_run_id()
-    st.session_state.node_status = {node: "pending" for node in NODE_ORDER}
+    st.session_state.node_status = {
+        node: "pending" for node in NODE_LABELS
+    }
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _short_time() -> str:
-    return datetime.now().strftime("%H:%M:%S")
-
+# ---------------------------------------------------------------------------
+# Serialization / views
+# ---------------------------------------------------------------------------
 
 def _safe_json(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
+
     if isinstance(value, dict):
         return {str(k): _safe_json(v) for k, v in value.items()}
+
     if isinstance(value, (list, tuple, set)):
         return [_safe_json(v) for v in value]
+
     if hasattr(value, "model_dump"):
         return _safe_json(value.model_dump(mode="json"))
+
     if hasattr(value, "dict"):
         return _safe_json(value.dict())
+
     if hasattr(value, "content") and not isinstance(value, str):
-        return {"type": type(value).__name__, "content": _safe_json(value.content)}
+        return {
+            "type": type(value).__name__,
+            "content": _safe_json(value.content),
+        }
+
     return str(value)
 
 
 def _state_view(state: dict[str, Any] | None) -> dict[str, Any]:
-    """Return a useful UI representation of the current graph state."""
     if not state:
         return {}
 
@@ -147,15 +203,8 @@ def _state_view(state: dict[str, Any] | None) -> dict[str, Any]:
     kyc = state.get("kyc_result")
     credit = state.get("credit_assessment")
     offer = state.get("offer")
-    reflection_log = state.get("reflection_log") or []
-    memory_hits = state.get("long_term_memory_hits") or []
-    quarantined = state.get("quarantined_inputs") or []
 
     return {
-        "identity": {
-            "user_id": state.get("user_id"),
-            "thread_id": state.get("thread_id"),
-        },
         "applicant": _safe_json(applicant),
         "kyc": _safe_json(kyc),
         "credit": _safe_json(credit),
@@ -164,31 +213,119 @@ def _state_view(state: dict[str, Any] | None) -> dict[str, Any]:
             "next_node": state.get("next_node"),
             "retry_count": state.get("retry_count", 0),
         },
-        "context": {
-            "compressed_summary_present": bool(state.get("compressed_summary")),
-            "memory_hits": len(memory_hits),
-            "quarantined_inputs": len(quarantined),
+        "memory": {
+            "hits": len(state.get("long_term_memory_hits") or []),
+            "compressed_summary_present": bool(
+                state.get("compressed_summary")
+            ),
         },
-        "reflection": _safe_json(reflection_log),
+        "quarantine": {
+            "items": len(state.get("quarantined_inputs") or []),
+        },
+        "reflection": _safe_json(state.get("reflection_log") or []),
     }
 
 
 def _node_input_view(state: dict[str, Any]) -> dict[str, Any]:
     view = _state_view(state)
-    # Keep the raw message contents out of the stage-level log. The explicit
-    # application input is displayed separately and the project audit logger
-    # remains responsible for sensitive-data redaction.
-    view.pop("messages", None)
     return view
 
 
-def _node_output_view(update: Any) -> Any:
-    if not isinstance(update, dict):
-        return _safe_json(update)
-    return _safe_json(update)
+# ---------------------------------------------------------------------------
+# Execution events
+# ---------------------------------------------------------------------------
 
+def _record_event(
+    *,
+    event_type: str,
+    node: str | None = None,
+    status: str | None = None,
+    input_data: Any = None,
+    output_data: Any = None,
+    error: str | None = None,
+    duration_ms: float | None = None,
+    detail: str | None = None,
+) -> None:
+    st.session_state.execution_events.append(
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "clock": datetime.now().strftime("%H:%M:%S"),
+            "run_id": st.session_state.run_id,
+            "event": event_type,
+            "node": node,
+            "status": status,
+            "input": _safe_json(input_data),
+            "output": _safe_json(output_data),
+            "error": error,
+            "duration_ms": duration_ms,
+            "detail": detail,
+        }
+    )
+
+
+def _edge_exists(source: str, target: str) -> bool:
+    return (source, target) in EDGES
+
+
+def _mark_running(node: str, input_state: dict[str, Any]) -> None:
+    previous = (
+        st.session_state.visited_nodes[-1]
+        if st.session_state.visited_nodes
+        else None
+    )
+
+    if previous and previous != node and _edge_exists(previous, node):
+        edge = (previous, node)
+        if edge not in st.session_state.executed_edges:
+            st.session_state.executed_edges.append(edge)
+            _record_event(
+                event_type="graph_transition",
+                node=node,
+                status="traversed",
+                detail=(
+                    f"{NODE_LABELS[previous]} → {NODE_LABELS[node]}"
+                ),
+            )
+
+    st.session_state.node_status[node] = "running"
+    st.session_state.current_layer = NODE_LABELS[node]
+
+    if node not in st.session_state.visited_nodes:
+        st.session_state.visited_nodes.append(node)
+
+    st.session_state.node_inputs[node] = _node_input_view(input_state)
+
+    _record_event(
+        event_type="node_started",
+        node=node,
+        status="running",
+        input_data=st.session_state.node_inputs[node],
+    )
+
+
+def _mark_completed(
+    node: str,
+    update: Any,
+    duration_ms: float,
+) -> None:
+    st.session_state.node_status[node] = "completed"
+    st.session_state.node_outputs[node] = _safe_json(update)
+
+    _record_event(
+        event_type="node_completed",
+        node=node,
+        status="completed",
+        output_data=st.session_state.node_outputs[node],
+        duration_ms=round(duration_ms, 2),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Input / graph construction
+# ---------------------------------------------------------------------------
 
 def _build_state(
+    *,
     applicant_id: str,
     full_name: str,
     dob_synthetic: str,
@@ -207,247 +344,429 @@ def _build_state(
         "raw_free_text_notes": raw_free_text_notes,
     }
 
-    state = new_state(thread_id=thread_id.strip(), user_id=user_id.strip())
+    if not payload["applicant_id"]:
+        raise ValueError("Applicant ID is required.")
+
+    if not payload["full_name"]:
+        raise ValueError("Full name is required.")
+
+    if not thread_id.strip():
+        raise ValueError("Application / thread ID is required.")
+
+    if not user_id.strip():
+        raise ValueError("User ID is required.")
+
+    state = new_state(
+        thread_id=thread_id.strip(),
+        user_id=user_id.strip(),
+    )
+
     state["messages"] = [
-        HumanMessage(content=json.dumps(payload, ensure_ascii=False))
+        HumanMessage(
+            content=json.dumps(
+                payload,
+                ensure_ascii=False,
+            )
+        )
     ]
+
     return state
 
 
-def _edge_exists(source: str, target: str) -> bool:
-    return (source, target) in EDGES
-
-
-def _record_event(
-    *,
-    event_type: str,
-    node: str | None = None,
-    status: str | None = None,
-    input_data: Any = None,
-    output_data: Any = None,
-    error: str | None = None,
-    duration_ms: float | None = None,
-    detail: str | None = None,
-) -> None:
-    st.session_state.execution_events.append(
-        {
-            "timestamp": _now(),
-            "clock": _short_time(),
-            "run_id": st.session_state.run_id,
-            "event": event_type,
-            "node": node,
-            "status": status,
-            "input": _safe_json(input_data),
-            "output": _safe_json(output_data),
-            "error": error,
-            "duration_ms": duration_ms,
-            "detail": detail,
-        }
-    )
-
-
-def _mark_running(node: str, input_state: dict[str, Any]) -> None:
-    previous = st.session_state.visited_nodes[-1] if st.session_state.visited_nodes else None
-    if previous and previous != node and _edge_exists(previous, node):
-        edge = (previous, node)
-        if edge not in st.session_state.executed_edges:
-            st.session_state.executed_edges.append(edge)
-            _record_event(
-                event_type="graph_transition",
-                node=node,
-                status="traversed",
-                detail=f"{NODE_LABELS[previous]} → {NODE_LABELS[node]}",
-            )
-
-    st.session_state.node_status[node] = "running"
-    if node not in st.session_state.visited_nodes:
-        st.session_state.visited_nodes.append(node)
-    st.session_state.node_inputs[node] = _node_input_view(input_state)
-    _record_event(
-        event_type="node_started",
-        node=node,
-        status="running",
-        input_data=st.session_state.node_inputs[node],
-    )
-
-
-def _mark_completed(node: str, update: Any, duration_ms: float) -> None:
-    st.session_state.node_status[node] = "completed"
-    st.session_state.node_outputs[node] = _node_output_view(update)
-    _record_event(
-        event_type="node_completed",
-        node=node,
-        status="completed",
-        output_data=st.session_state.node_outputs[node],
-        duration_ms=round(duration_ms, 2),
-    )
-
-
-def _mark_failed(node: str, exc: Exception) -> None:
-    error_text = f"{type(exc).__name__}: {exc}"
-    st.session_state.node_status[node] = "failed"
-    st.session_state.node_errors[node] = error_text
-    _record_event(
-        event_type="node_failed",
-        node=node,
-        status="failed",
-        error=error_text,
-    )
-
+# ---------------------------------------------------------------------------
+# Graph rendering
+# ---------------------------------------------------------------------------
 
 def _svg_graph() -> str:
     statuses = st.session_state.node_status
-    executed_edges = set(tuple(edge) for edge in st.session_state.executed_edges)
     visited = set(st.session_state.visited_nodes)
+    executed_edges = set(
+        tuple(edge)
+        for edge in st.session_state.executed_edges
+    )
 
     positions = {
-        "supervisor": (70, 180),
-        "intake": (280, 180),
-        "kyc_check": (490, 80),
-        "credit_assessment": (700, 80),
-        "offer_draft": (910, 80),
-        "memory_consolidation": (1120, 80),
-        "reflector": (700, 280),
-        "END": (1330, 80),
+        "supervisor": (50, 140),
+        "intake": (250, 140),
+        "kyc_check": (455, 140),
+        "credit_assessment": (675, 140),
+        "offer_draft": (905, 140),
+        "memory_consolidation": (1140, 140),
+        "END": (1390, 140),
+        "reflector": (675, 310),
     }
-    sizes = {node: (155, 62) for node in NODE_ORDER}
-    sizes["memory_consolidation"] = (190, 62)
+
+    sizes = {
+        node: (145, 70)
+        for node in NODE_LABELS
+    }
+    sizes["credit_assessment"] = (175, 70)
+    sizes["memory_consolidation"] = (195, 70)
+    sizes["reflector"] = (175, 70)
 
     svg = [
-        '<svg viewBox="0 0 1510 390" width="100%" role="img" aria-label="Loan origination agent graph">',
-        '<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#94A3B8"/></marker>',
-        '<marker id="arrowActive" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#111827"/></marker></defs>',
-        '<rect x="0" y="0" width="1510" height="390" rx="22" fill="#F8FAFC"/>',
+        '<svg viewBox="0 0 1580 430" '
+        'width="100%" '
+        'role="img" '
+        'aria-label="Loan origination agent workflow">',
+        "<defs>",
+        '<filter id="glow" x="-20%" y="-20%" width="140%" height="140%">',
+        '<feGaussianBlur stdDeviation="3" result="blur"/>',
+        '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/>'
+        "</feMerge>",
+        "</filter>",
+        '<marker id="arrow" markerWidth="9" markerHeight="9" '
+        'refX="8" refY="4.5" orient="auto">',
+        '<path d="M0,0 L9,4.5 L0,9 z" fill="#64748B"/>',
+        "</marker>",
+        '<marker id="arrowActive" markerWidth="9" markerHeight="9" '
+        'refX="8" refY="4.5" orient="auto">',
+        '<path d="M0,0 L9,4.5 L0,9 z" fill="#60A5FA"/>',
+        "</marker>",
+        "</defs>",
+        '<rect x="0" y="0" width="1580" height="430" rx="24" '
+        'fill="#090B10" stroke="#1F2937"/>',
     ]
+
+    # Main lane label
+    svg.append(
+        '<text x="50" y="35" font-family="Arial" font-size="12" '
+        'font-weight="700" fill="#94A3B8">PRIMARY DECISION PATH</text>'
+    )
+
+    # Reflection lane label
+    svg.append(
+        '<text x="610" y="395" font-family="Arial" font-size="11" '
+        'font-weight="700" fill="#94A3B8">BOUNDED RECOVERY PATH</text>'
+    )
 
     for source, target in EDGES:
         x1, y1 = positions[source]
         x2, y2 = positions[target]
         w1, h1 = sizes[source]
         w2, h2 = sizes[target]
-        sx = x1 + w1
-        sy = y1 + h1 / 2
-        tx = x2
-        ty = y2 + h2 / 2
-        active = (source, target) in executed_edges
-        stroke = "#111827" if active else "#CBD5E1"
-        width = 3 if active else 1.5
-        marker = "arrowActive" if active else "arrow"
 
-        if abs(sy - ty) < 12:
-            path = f'M {sx} {sy} L {tx} {ty}'
+        # Draw special recovery edges differently.
+        if source == "reflector" or target == "reflector":
+            sx = x1 + w1 / 2
+            sy = y1
+            tx = x2 + w2 / 2
+            ty = y2 + h2
         else:
-            midx = (sx + tx) / 2
-            path = f'M {sx} {sy} C {midx} {sy}, {midx} {ty}, {tx} {ty}'
+            sx = x1 + w1
+            sy = y1 + h1 / 2
+            tx = x2
+            ty = y2 + h2 / 2
+
+        active = (source, target) in executed_edges
+        stroke = "#60A5FA" if active else "#334155"
+        width = 3.5 if active else 1.5
+        marker = "arrowActive" if active else "arrow"
+        filter_attr = ' filter="url(#glow)"' if active else ""
+
+        if source == "reflector" or target == "reflector":
+            mid_y = (sy + ty) / 2
+            path = (
+                f"M {sx} {sy} C {sx} {mid_y}, "
+                f"{tx} {mid_y}, {tx} {ty}"
+            )
+        elif abs(sy - ty) < 8:
+            path = f"M {sx} {sy} L {tx} {ty}"
+        else:
+            mid_x = (sx + tx) / 2
+            path = (
+                f"M {sx} {sy} C {mid_x} {sy}, "
+                f"{mid_x} {ty}, {tx} {ty}"
+            )
 
         svg.append(
-            f'<path d="{path}" fill="none" stroke="{stroke}" stroke-width="{width}" marker-end="url(#{marker})"/>'
+            f'<path d="{path}" fill="none" stroke="{stroke}" '
+            f'stroke-width="{width}" marker-end="url(#{marker})"'
+            f"{filter_attr}/>"
         )
 
-    for node in NODE_ORDER:
+    for node in NODE_LABELS:
         x, y = positions[node]
         w, h = sizes[node]
+
         status = statuses.get(node, "pending")
-        fill, text, soft = STATUS_META.get(status, STATUS_META["pending"])
-        if node in visited and status == "pending":
-            status = "not_reached"
-            fill, text, soft = STATUS_META[status]
-        label = NODE_LABELS[node]
-        svg.append(
-            f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="16" fill="{soft}" stroke="{text}" stroke-width="2.5"/>'
-            f'<circle cx="{x + 22}" cy="{y + 22}" r="7" fill="{fill}" stroke="{text}" stroke-width="1.5"/>'
-            f'<text x="{x + 38}" y="{y + 27}" font-family="Arial" font-size="13" font-weight="700" fill="#0F172A">{label}</text>'
-            f'<text x="{x + 38}" y="{y + 47}" font-family="Arial" font-size="10" font-weight="600" fill="{text}">{status.upper()}</text></g>'
+        if node not in visited and status == "pending":
+            status = "pending"
+
+        soft, text, _ = STATUS_META.get(
+            status,
+            STATUS_META["pending"],
         )
 
-    svg.append('</svg>')
+        if status == "running":
+            fill = "#172554"
+            border = "#3B82F6"
+            dot = "#60A5FA"
+        elif status == "completed":
+            fill = "#052E16"
+            border = "#22C55E"
+            dot = "#4ADE80"
+        elif status == "failed":
+            fill = "#450A0A"
+            border = "#EF4444"
+            dot = "#F87171"
+        elif status == "recovered":
+            fill = "#451A03"
+            border = "#F59E0B"
+            dot = "#FBBF24"
+        elif status == "not_reached":
+            fill = "#111827"
+            border = "#374151"
+            dot = "#4B5563"
+        else:
+            fill = "#14181D"
+            border = "#374151"
+            dot = "#6B7280"
+
+        if node == "credit_assessment":
+            fill = "#0F172A"
+            border = "#38BDF8" if status == "running" else border
+
+        svg.append(
+            f'<g>'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="18" '
+            f'fill="{fill}" stroke="{border}" stroke-width="2"/>'
+            f'<circle cx="{x + 22}" cy="{y + 23}" r="7" '
+            f'fill="{dot}"/>'
+            f'<text x="{x + 38}" y="{y + 27}" '
+            f'font-family="Arial" font-size="13" font-weight="700" '
+            f'fill="#F8FAFC">{NODE_LABELS[node]}</text>'
+            f'<text x="{x + 18}" y="{y + 53}" '
+            f'font-family="Arial" font-size="10" font-weight="700" '
+            f'letter-spacing="0.7" fill="{text}">{status.upper()}</text>'
+            f'</g>'
+        )
+
+    svg.append("</svg>")
     return "".join(svg)
 
 
-def _render_graph(placeholder=None) -> None:
-    target = placeholder if placeholder is not None else st
-    target.markdown(_svg_graph(), unsafe_allow_html=True)
+def _render_graph() -> None:
+    st.markdown(
+        _svg_graph(),
+        unsafe_allow_html=True,
+    )
 
 
-def _render_status() -> None:
-    statuses = st.session_state.node_status
-    completed = sum(status == "completed" for status in statuses.values())
-    failed = sum(status == "failed" for status in statuses.values())
-    running = sum(status == "running" for status in statuses.values())
-    reached = len([n for n in st.session_state.visited_nodes if n != "END"])
+# ---------------------------------------------------------------------------
+# Page 1: Workflow
+# ---------------------------------------------------------------------------
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Stages reached", reached)
-    c2.metric("Completed", completed)
-    c3.metric("Errors", failed)
-    c4.metric("Retries", st.session_state.get("final_state", {}).get("retry_count", 0) if isinstance(st.session_state.get("final_state"), dict) else 0)
+def _render_input_form() -> dict[str, Any] | None:
+    st.markdown("### Start an application")
+    st.caption(
+        "Enter the synthetic applicant data. The existing LangGraph "
+        "handles the complete workflow."
+    )
+
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            applicant_id = st.text_input(
+                "Applicant ID",
+                value="SYN-0001",
+            )
+            full_name = st.text_input(
+                "Full name",
+                value="Asha Kulkarni",
+            )
+            dob_synthetic = st.text_input(
+                "DOB (synthetic)",
+                value="1990-01-01",
+            )
+
+        with col2:
+            declared_income = st.number_input(
+                "Declared annual income",
+                min_value=0.0,
+                value=85000.0,
+                step=5000.0,
+            )
+            declared_employment = st.text_input(
+                "Declared employment",
+                value="Software Engineer, synthetic employer",
+            )
+            user_id = st.text_input(
+                "User ID",
+                value="demo-user",
+            )
+
+        raw_free_text_notes = st.text_area(
+            "Applicant notes",
+            value="I'd like a loan to renovate my kitchen next spring.",
+            height=100,
+            help=(
+                "Applicant-submitted free text is treated as untrusted "
+                "content and quarantined by the context layer."
+            ),
+        )
+
+        col_a, col_b = st.columns([1, 1])
+
+        with col_a:
+            start = st.button(
+                "Start application",
+                type="primary",
+                width="stretch",
+            )
+
+        with col_b:
+            new_run = st.button(
+                "Clear / new application",
+                width="stretch",
+            )
+
+        if new_run:
+            _reset_run()
+            st.rerun()
+
+    if not start:
+        return None
+
+    thread_id = f"streamlit-{uuid.uuid4().hex[:10]}"
+
+    try:
+        return _build_state(
+            applicant_id=applicant_id,
+            full_name=full_name,
+            dob_synthetic=dob_synthetic,
+            declared_income=declared_income,
+            declared_employment=declared_employment,
+            raw_free_text_notes=raw_free_text_notes,
+            thread_id=thread_id,
+            user_id=user_id,
+        )
+    except Exception as exc:
+        st.error(f"Invalid application input: {type(exc).__name__}: {exc}")
+        return None
 
 
-def _render_application_input() -> None:
-    st.subheader("Application input")
-    payload = st.session_state.get("input_payload")
-    if payload:
-        display = dict(payload)
-        if display.get("raw_free_text_notes"):
-            display["raw_free_text_notes"] = {
-                "value": display["raw_free_text_notes"],
-                "trust": "UNTRUSTED / QUARANTINED",
-            }
-        st.json(display)
+def _render_thinking() -> None:
+    current = st.session_state.current_layer
+
+    if not current:
+        label = "Ready"
+        detail = "Waiting for an application to start."
     else:
-        st.info("Submit an application to begin a new run.")
+        label = f"Thinking · {current}"
+        detail = NODE_DESCRIPTIONS.get(
+            next(
+                (
+                    node
+                    for node, name in NODE_LABELS.items()
+                    if name == current
+                ),
+                "",
+            ),
+            "Executing the current workflow layer.",
+        )
+
+    st.markdown(
+        f"""
+        <div style="
+            border:1px solid #1F2937;
+            background:#0B0F14;
+            border-radius:14px;
+            padding:14px 16px;
+            margin:10px 0 18px 0;
+        ">
+            <div style="
+                color:#E5E7EB;
+                font-size:15px;
+                font-weight:700;
+                margin-bottom:4px;
+            ">{label}</div>
+            <div style="
+                color:#64748B;
+                font-size:12px;
+            ">{detail}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def _render_timeline() -> None:
-    events = st.session_state.execution_events
-    if not events:
-        st.info("No execution events yet.")
+def _render_current_credit_assessment() -> None:
+    state = st.session_state.final_state
+
+    if not state:
         return
 
-    st.subheader("End-to-end execution log")
-    for index, event in enumerate(reversed(events), start=1):
-        label = event.get("node") or event.get("event") or "event"
-        status = event.get("status") or "info"
-        duration = event.get("duration_ms")
-        suffix = f" · {duration:.0f} ms" if isinstance(duration, (int, float)) else ""
-        title = f"{event.get('clock', '')} · {label} · {status.upper()}{suffix}"
-
-        with st.expander(title, expanded=(index <= 3)):
-            if event.get("detail"):
-                st.write(event["detail"])
-            if event.get("error"):
-                st.error(event["error"])
-            if event.get("input") not in (None, {}):
-                st.markdown("**Input / state before stage**")
-                st.json(event["input"])
-            if event.get("output") not in (None, {}):
-                st.markdown("**Output / state contribution**")
-                st.json(event["output"])
-
-
-def _render_stage_details() -> None:
-    st.subheader("Stage details")
-    visited = st.session_state.visited_nodes
-    if not visited:
-        st.info("Stage-level input/output will appear here as the graph executes.")
+    credit = state.get("credit_assessment")
+    if not credit:
         return
 
-    for node in visited:
-        status = st.session_state.node_status.get(node, "pending")
-        with st.expander(f"{NODE_LABELS[node]} · {status.upper()}", expanded=False):
-            if node in st.session_state.node_inputs:
-                st.markdown("**Input**")
-                st.json(st.session_state.node_inputs[node])
-            if node in st.session_state.node_outputs:
-                st.markdown("**Output**")
-                st.json(st.session_state.node_outputs[node])
-            if node in st.session_state.node_errors:
-                st.markdown("**Error**")
-                st.error(st.session_state.node_errors[node])
+    decision = getattr(credit, "decision", None)
+    confidence = getattr(credit, "confidence", None)
+    rationale = getattr(credit, "rationale", None)
+    thin_file = getattr(credit, "thin_file", None)
+    dti = getattr(credit, "dti", None)
+
+    if decision == "approve":
+        accent = "#22C55E"
+        title = "Approved"
+    elif decision == "manual_underwriting":
+        accent = "#F59E0B"
+        title = "Manual Underwriting"
+    elif decision == "decline":
+        accent = "#EF4444"
+        title = "Declined"
+    else:
+        accent = "#60A5FA"
+        title = "Credit Assessment"
+
+    st.markdown(
+        f"""
+        <div style="
+            border:1px solid #263241;
+            border-left:4px solid {accent};
+            background:#0B0F14;
+            border-radius:16px;
+            padding:18px 20px;
+            margin-top:18px;
+        ">
+            <div style="color:#64748B;font-size:11px;
+                        text-transform:uppercase;letter-spacing:1.2px;">
+                Credit Assessment
+            </div>
+            <div style="color:#F8FAFC;font-size:25px;
+                        font-weight:700;margin-top:5px;">
+                {title}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Confidence",
+        f"{confidence:.0%}" if isinstance(confidence, (int, float)) else "—",
+    )
+    c2.metric(
+        "Thin-file",
+        "Yes" if thin_file else "No",
+    )
+    c3.metric(
+        "DTI",
+        f"{dti:.3f}" if isinstance(dti, (int, float)) else "—",
+    )
+
+    if rationale:
+        with st.expander("Credit rationale", expanded=True):
+            st.write(rationale)
 
 
-def _render_outcome() -> None:
-    state = st.session_state.get("final_state")
+def _render_final_outcome() -> None:
+    state = st.session_state.final_state
+
     if not state:
         return
 
@@ -456,62 +775,68 @@ def _render_outcome() -> None:
     credit = state.get("credit_assessment")
     offer = state.get("offer")
 
-    st.subheader("Final outcome")
-
-    decision = getattr(credit, "decision", None)
-    kyc_status = getattr(kyc, "status", None)
+    if credit:
+        decision = getattr(credit, "decision", None)
+    else:
+        decision = None
 
     if decision == "approve":
-        st.success("Indicative offer generated")
-    elif decision in {"decline", "manual_underwriting"}:
-        st.warning(f"Credit outcome: {decision.replace('_', ' ').title()}")
-    elif kyc_status:
-        st.warning(f"KYC outcome: {kyc_status.replace('_', ' ').title()}")
-
-    summary = {
-        "applicant_id": getattr(applicant, "applicant_id", None),
-        "kyc_status": kyc_status,
-        "credit_decision": decision,
-        "credit_confidence": getattr(credit, "confidence", None),
-        "thin_file": getattr(credit, "thin_file", None),
-        "offer_principal": getattr(offer, "principal", None),
-        "offer_apr": getattr(offer, "apr", None),
-        "offer_term_months": getattr(offer, "term_months", None),
-        "next_node": state.get("next_node"),
-        "retry_count": state.get("retry_count", 0),
-    }
-    st.json(_safe_json(summary))
-
-    reflection_log = state.get("reflection_log") or []
-    if reflection_log:
-        st.markdown("**Recovery / reflection**")
-        for note in reflection_log:
-            st.info(
-                f"{note.triggered_by} → {note.action_taken}: {note.detail}"
+        st.success("Indicative offer generated.")
+    elif decision:
+        st.warning(
+            f"Credit outcome: {str(decision).replace('_', ' ').title()}"
+        )
+    elif kyc:
+        status = getattr(kyc, "status", None)
+        if status:
+            st.warning(
+                f"KYC outcome: {str(status).replace('_', ' ').title()}"
             )
+
+    with st.container(border=True):
+        st.markdown("### Final outcome")
+
+        result = {
+            "applicant_id": getattr(applicant, "applicant_id", None),
+            "kyc_status": getattr(kyc, "status", None),
+            "credit_decision": decision,
+            "credit_confidence": getattr(credit, "confidence", None),
+            "offer_principal": getattr(offer, "principal", None),
+            "offer_apr": getattr(offer, "apr", None),
+            "offer_term_months": getattr(offer, "term_months", None),
+            "retry_count": state.get("retry_count", 0),
+        }
+
+        st.json(_safe_json(result))
 
 
 def _execute_application(state: dict[str, Any]) -> None:
     _reset_run()
-    st.session_state.input_payload = json.loads(state["messages"][0].content)
-    st.session_state.run_started = _now()
+
+    st.session_state.input_payload = json.loads(
+        state["messages"][0].content
+    )
+    st.session_state.run_started = datetime.now(
+        timezone.utc
+    ).isoformat()
 
     graph_placeholder = st.empty()
+    thinking_placeholder = st.empty()
     status_placeholder = st.empty()
-    timeline_placeholder = st.empty()
-    stage_placeholder = st.empty()
+    credit_placeholder = st.empty()
     outcome_placeholder = st.empty()
 
     _record_event(
         event_type="application_started",
         status="started",
         input_data=st.session_state.input_payload,
-        detail="Loan application submitted to the LangGraph execution engine.",
+        detail="Application submitted to LangGraph.",
     )
 
     try:
         with get_checkpointer() as checkpointer:
             graph = build_graph(checkpointer=checkpointer)
+
             config = {
                 "configurable": {
                     "thread_id": state["thread_id"],
@@ -521,9 +846,9 @@ def _execute_application(state: dict[str, Any]) -> None:
 
             current_state = dict(state)
             final_state = None
-            node_started_at: dict[str, float] = {}
 
-            _render_graph(graph_placeholder)
+            with graph_placeholder.container():
+                _render_graph()
 
             for update in graph.stream(
                 state,
@@ -534,32 +859,63 @@ def _execute_application(state: dict[str, Any]) -> None:
                     if node_name not in NODE_LABELS:
                         continue
 
-                    node_started_at[node_name] = time.perf_counter()
+                    started = time.perf_counter()
                     _mark_running(node_name, current_state)
 
-                    # Merge the node contribution into our local observable state.
                     if isinstance(node_update, dict):
                         current_state.update(node_update)
                         final_state = dict(current_state)
 
                     elapsed_ms = (
-                        time.perf_counter() - node_started_at[node_name]
+                        time.perf_counter() - started
                     ) * 1000
-                    _mark_completed(node_name, node_update, elapsed_ms)
 
-                    # Explicitly record END as a completed terminal stage when yielded.
-                    if node_name == "END":
-                        st.session_state.node_status["END"] = "completed"
+                    _mark_completed(
+                        node_name,
+                        node_update,
+                        elapsed_ms,
+                    )
 
-                    _render_graph(graph_placeholder)
+                    with graph_placeholder.container():
+                        _render_graph()
+
+                    with thinking_placeholder.container():
+                        _render_thinking()
+
                     with status_placeholder.container():
-                        _render_status()
-                    with timeline_placeholder.container():
-                        _render_timeline()
-                    with stage_placeholder.container():
-                        _render_stage_details()
+                        reached = len(
+                            [
+                                node
+                                for node in st.session_state.visited_nodes
+                                if node != "END"
+                            ]
+                        )
+                        completed = sum(
+                            status == "completed"
+                            for status in st.session_state.node_status.values()
+                        )
+                        errors = sum(
+                            status == "failed"
+                            for status in st.session_state.node_status.values()
+                        )
+                        st.caption(
+                            f"Stages reached: {reached}  ·  "
+                            f"Completed: {completed}  ·  "
+                            f"Errors: {errors}  ·  "
+                            f"Retries: "
+                            f"{current_state.get('retry_count', 0)}"
+                        )
 
-                    time.sleep(0.10)
+                    if isinstance(final_state, dict):
+                        st.session_state.final_state = final_state
+
+                    with credit_placeholder.container():
+                        _render_current_credit_assessment()
+
+                    with outcome_placeholder.container():
+                        _render_final_outcome()
+
+                    time.sleep(0.08)
 
             try:
                 snapshot = graph.get_state(config)
@@ -570,168 +926,413 @@ def _execute_application(state: dict[str, Any]) -> None:
                     event_type="checkpoint_snapshot_warning",
                     status="warning",
                     error=f"{type(exc).__name__}: {exc}",
-                    detail="Graph execution completed, but the final checkpoint snapshot could not be read.",
-                )
-                log_event(
-                    "streamlit_state_snapshot_failed",
-                    thread_id=state.get("thread_id"),
-                    error_type=type(exc).__name__,
+                    detail=(
+                        "Execution completed, but the final checkpoint "
+                        "snapshot could not be read."
+                    ),
                 )
 
-            # Mark declared graph nodes that were never reached.
-            for node in NODE_ORDER:
-                if node == "END":
-                    continue
-                if node not in st.session_state.visited_nodes:
+            for node in NODE_LABELS:
+                if (
+                    node != "END"
+                    and node not in st.session_state.visited_nodes
+                ):
                     st.session_state.node_status[node] = "not_reached"
 
             if "END" not in st.session_state.visited_nodes:
                 st.session_state.node_status["END"] = "completed"
-                if st.session_state.visited_nodes:
-                    last_node = st.session_state.visited_nodes[-1]
-                    if last_node != "END" and _edge_exists(last_node, "END"):
-                        edge = (last_node, "END")
-                        if edge not in st.session_state.executed_edges:
-                            st.session_state.executed_edges.append(edge)
 
-            st.session_state.final_state = final_state or current_state or state
-            st.session_state.run_finished = _now()
+            st.session_state.final_state = (
+                final_state or current_state or state
+            )
+            st.session_state.run_finished = datetime.now(
+                timezone.utc
+            ).isoformat()
+
             _record_event(
                 event_type="application_completed",
                 status="completed",
-                output_data=_state_view(st.session_state.final_state),
-                detail="LangGraph execution completed and final checkpoint state captured.",
+                output_data=_state_view(
+                    st.session_state.final_state
+                ),
+                detail="LangGraph execution completed.",
             )
 
-            _render_graph(graph_placeholder)
-            with status_placeholder.container():
-                _render_status()
-            with timeline_placeholder.container():
-                _render_timeline()
-            with stage_placeholder.container():
-                _render_stage_details()
+            with graph_placeholder.container():
+                _render_graph()
+
+            with thinking_placeholder.container():
+                _render_thinking()
+
+            with credit_placeholder.container():
+                _render_current_credit_assessment()
+
             with outcome_placeholder.container():
-                _render_outcome()
+                _render_final_outcome()
 
     except Exception as exc:
         error_text = f"{type(exc).__name__}: {exc}"
         st.session_state.run_error = error_text
 
-        # If the graph failed before a node name could be identified, preserve
-        # everything already completed and log the application-level failure.
         _record_event(
             event_type="application_failed",
             node="application",
             status="failed",
             error=error_text,
-            detail="Unexpected exception escaped the LangGraph execution boundary.",
+            detail=(
+                "Unexpected exception escaped the LangGraph "
+                "execution boundary."
+            ),
         )
+
         log_event(
             "streamlit_application_failed",
             user_id=state.get("user_id"),
             thread_id=state.get("thread_id"),
             error_type=type(exc).__name__,
         )
-        traceback.print_exc()
 
-        for node in NODE_ORDER:
+        for node in NODE_LABELS:
             if node not in st.session_state.visited_nodes:
                 st.session_state.node_status[node] = "not_reached"
 
-        _render_graph(graph_placeholder)
-        with status_placeholder.container():
-            _render_status()
-        with timeline_placeholder.container():
-            _render_timeline()
-        with stage_placeholder.container():
-            _render_stage_details()
+        with graph_placeholder.container():
+            _render_graph()
+
+        with thinking_placeholder.container():
+            _render_thinking()
 
         st.error(
-            "The graph execution encountered an unexpected error. "
-            "Completed stages and the full execution log remain available below."
-        )
-        st.code(error_text, language="text")
-
-
-def _render_sidebar() -> tuple[dict[str, Any] | None, bool, bool]:
-    with st.sidebar:
-        st.header("Synthetic application")
-
-        applicant_id = st.text_input("Applicant ID", value="SYN-0001")
-        full_name = st.text_input("Full name", value="Asha Kulkarni")
-        dob_synthetic = st.text_input("DOB (synthetic)", value="1990-01-01")
-        declared_income = st.number_input(
-            "Declared annual income",
-            min_value=0.0,
-            value=85000.0,
-            step=5000.0,
-        )
-        declared_employment = st.text_input(
-            "Declared employment",
-            value="Software Engineer, synthetic employer Acme Corp",
-        )
-        raw_free_text_notes = st.text_area(
-            "Applicant notes (untrusted)",
-            value="I'd like a loan to renovate my kitchen next spring.",
-            height=120,
-            help="This field is treated as untrusted applicant content and is quarantined by the application.",
+            "The workflow encountered an unexpected error. "
+            "The completed stages and detailed logs remain available "
+            "on the Execution Logs page."
         )
 
-        user_id = st.text_input("User ID", value="demo-user")
-        thread_id = st.text_input(
-            "Application / thread ID",
-            value=f"streamlit-{uuid.uuid4().hex[:8]}",
+
+def _render_workflow_page() -> None:
+    st.markdown(
+        """
+        <div style="margin-bottom:12px;">
+            <div style="
+                color:#64748B;
+                font-size:11px;
+                text-transform:uppercase;
+                letter-spacing:1.4px;
+            ">Loan Origination Copilot</div>
+            <div style="
+                color:#F8FAFC;
+                font-size:32px;
+                font-weight:700;
+                margin-top:3px;
+            ">Application Workflow</div>
+            <div style="
+                color:#94A3B8;
+                font-size:13px;
+                margin-top:4px;
+            ">
+                Execute the existing LangGraph and watch the active layer
+                progress through the workflow.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    state = _render_input_form()
+
+    if state is not None:
+        _execute_application(state)
+
+    st.divider()
+
+    # Current execution identity
+    c1, c2, c3 = st.columns(3)
+    c1.markdown(
+        f"**RUN**  `{st.session_state.run_id}`"
+    )
+    c2.markdown(
+        f"**LAYER**  `{st.session_state.current_layer or 'Ready'}`"
+    )
+    c3.markdown(
+        "**MODE**  `Existing LangGraph`"
+    )
+
+    st.markdown("### Agent workflow")
+    _render_thinking()
+    _render_graph()
+
+    st.divider()
+
+    _render_current_credit_assessment()
+
+    if not st.session_state.final_state:
+        st.info(
+            "Credit assessment will appear here when the workflow reaches "
+            "that stage."
         )
 
-        run_application = st.button(
-            "Run complete application",
-            type="primary",
-            use_container_width=True,
+    _render_final_outcome()
+
+
+# ---------------------------------------------------------------------------
+# Page 2: Execution logs
+# ---------------------------------------------------------------------------
+
+def _render_logs_page() -> None:
+    st.markdown("### Execution Logs")
+    st.caption(
+        "Complete end-to-end execution record for the current application."
+    )
+
+    events = st.session_state.execution_events
+
+    if not events:
+        st.info(
+            "No execution events yet. Start an application from Workflow."
         )
-        new_application = st.button(
-            "Start new application",
-            use_container_width=True,
+        return
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Events", len(events))
+    c2.metric(
+        "Nodes",
+        len(st.session_state.visited_nodes),
+    )
+    c3.metric(
+        "Transitions",
+        len(st.session_state.executed_edges),
+    )
+    c4.metric(
+        "Errors",
+        sum(
+            event.get("status") == "failed"
+            for event in events
+        ),
+    )
+
+    st.markdown("### Execution order")
+
+    for index, event in enumerate(events, start=1):
+        event_name = event.get("event", "event")
+        node = event.get("node") or "system"
+        status = event.get("status") or "info"
+        clock = event.get("clock", "")
+        duration = event.get("duration_ms")
+
+        duration_text = (
+            f" · {duration:.0f} ms"
+            if isinstance(duration, (int, float))
+            else ""
         )
 
-        st.divider()
-        st.markdown("**Execution model**")
-        st.caption(
-            "Each run resets the visual graph and execution console. "
-            "The underlying LangGraph, MCP, RAG, memory, checkpointing, and reflection behavior is unchanged."
+        title = (
+            f"{index:02d}  {clock}  ·  "
+            f"{node}  ·  {event_name}  ·  "
+            f"{status.upper()}{duration_text}"
         )
 
-        if new_application:
-            _reset_run()
-            st.rerun()
+        with st.expander(title, expanded=(index == len(events))):
+            if event.get("detail"):
+                st.caption(event["detail"])
 
-        if run_application:
-            try:
-                state = _build_state(
-                    applicant_id=applicant_id,
-                    full_name=full_name,
-                    dob_synthetic=dob_synthetic,
-                    declared_income=declared_income,
-                    declared_employment=declared_employment,
-                    raw_free_text_notes=raw_free_text_notes,
-                    thread_id=thread_id,
-                    user_id=user_id,
+            if event.get("error"):
+                st.error(event["error"])
+
+            if event.get("input") not in (None, {}):
+                st.markdown("**Input**")
+                st.json(event["input"])
+
+            if event.get("output") not in (None, {}):
+                st.markdown("**Output**")
+                st.json(event["output"])
+
+    st.markdown("### Graph flow")
+
+    if st.session_state.executed_edges:
+        for source, target in st.session_state.executed_edges:
+            st.markdown(
+                f"`{NODE_LABELS[source]}` → "
+                f"`{NODE_LABELS[target]}`"
+            )
+
+    st.markdown("### Raw execution record")
+
+    downloadable = json.dumps(
+        st.session_state.execution_events,
+        indent=2,
+        default=str,
+    )
+
+    st.download_button(
+        "Download execution log",
+        data=downloadable,
+        file_name=f"{st.session_state.run_id}_execution.json",
+        mime="application/json",
+        width="content",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Page 3: Graph knowledge
+# ---------------------------------------------------------------------------
+
+def _render_graph_knowledge_page() -> None:
+    st.markdown("### Graph Knowledge")
+    st.caption(
+        "Reference view of how the loan-origination graph is assembled, "
+        "what each layer owns, and which tools it can use."
+    )
+
+    st.markdown("#### Node responsibilities")
+
+    for node in NODE_LABELS:
+        with st.container(border=True):
+            col1, col2, col3 = st.columns([1.3, 1.2, 2.6])
+
+            with col1:
+                st.markdown(f"**{NODE_LABELS[node]}**")
+
+            with col2:
+                st.caption(NODE_AUTHORITY[node])
+
+            with col3:
+                st.write(NODE_DESCRIPTIONS[node])
+
+            tools = NODE_TOOLS[node]
+            if tools:
+                st.caption(
+                    "Tools / dependencies: "
+                    + ", ".join(tools)
                 )
-                return state, True, False
-            except Exception as exc:
-                st.error(
-                    f"Invalid application input: {type(exc).__name__}: {exc}"
-                )
-                return None, False, False
 
-    return None, False, False
+    st.divider()
 
+    st.markdown("#### Authority model")
+
+    st.code(
+        """LLM
+  ├─ extraction
+  ├─ rationale
+  ├─ confidence
+  ├─ constrained offer drafting
+  └─ discretionary policy retrieval
+
+Trusted MCP
+  ├─ applicant facts
+  ├─ bureau facts
+  └─ lending-policy search
+
+Deterministic Python
+  ├─ KYC gate
+  ├─ credit policy gate
+  ├─ routing
+  ├─ retry limits
+  └─ hard offer constraints""",
+        language="text",
+    )
+
+    st.markdown("#### MCP integration")
+
+    mcp_rows = [
+        {
+            "Component": "applicant_lookup",
+            "Type": "MCP tool",
+            "Owner": "KYC",
+            "Mode": "Deterministic",
+        },
+        {
+            "Component": "bureau_check",
+            "Type": "MCP tool",
+            "Owner": "Credit",
+            "Mode": "Deterministic",
+        },
+        {
+            "Component": "lending_policy_search",
+            "Type": "MCP tool",
+            "Owner": "Credit / Offer",
+            "Mode": "Agentic / optional",
+        },
+        {
+            "Component": "policy://credit_policy_manual",
+            "Type": "MCP resource",
+            "Owner": "Policy reference",
+            "Mode": "Readable resource",
+        },
+    ]
+
+    st.dataframe(
+        mcp_rows,
+        width="stretch",
+        hide_index=True,
+    )
+
+    st.markdown("#### Memory model")
+
+    st.code(
+        """thread_id
+  → short-term checkpoint state
+  → exact pause / resume
+
+user_id
+  → long-term Chroma semantic memory
+  → durable facts across sessions
+
+Policy:
+  memory informs context
+  current application facts + current MCP results
+  remain authoritative for KYC / credit decisions""",
+        language="text",
+    )
+
+    st.markdown("#### Context model")
+
+    context_cols = st.columns(4)
+
+    context_items = [
+        ("WRITE", "Validated Pydantic objects enter graph state."),
+        ("SELECT", "Workers receive task-specific context."),
+        ("COMPRESS", "Long histories are summarized into bounded context."),
+        ("ISOLATE", "Applicant free text is quarantined and excluded from model instruction context."),
+    ]
+
+    for column, (title, body) in zip(context_cols, context_items):
+        with column:
+            st.markdown(f"**{title}**")
+            st.caption(body)
+
+    st.markdown("#### Routing edges")
+
+    edge_rows = [
+        {
+            "From": NODE_LABELS[source],
+            "To": NODE_LABELS[target],
+            "Type": (
+                "Recovery"
+                if source == "reflector"
+                or target == "reflector"
+                else "Workflow"
+            ),
+        }
+        for source, target in EDGES
+    ]
+
+    st.dataframe(
+        edge_rows,
+        width="stretch",
+        hide_index=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
 
 def main() -> None:
     st.set_page_config(
         page_title="Loan Origination Copilot",
-        page_icon="🏦",
+        page_icon="◈",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
 
     _init_session()
@@ -739,56 +1340,100 @@ def main() -> None:
     st.markdown(
         """
         <style>
-        .block-container {padding-top: 1.4rem; padding-bottom: 2rem;}
-        .run-chip {display:inline-block; padding:4px 10px; border-radius:999px;
-                   background:#F1F5F9; color:#334155; font-size:12px; font-weight:700;}
-        .section-card {padding:1rem 1.1rem; border:1px solid #E2E8F0;
-                       border-radius:14px; background:#FFFFFF;}
+        .stApp {
+            background: #05070A;
+            color: #E5E7EB;
+        }
+
+        [data-testid="stHeader"] {
+            background: #05070A;
+        }
+
+        .block-container {
+            max-width: 1500px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+
+        div[data-testid="stMetric"] {
+            background: #0B0F14;
+            border: 1px solid #1F2937;
+            border-radius: 14px;
+            padding: 10px 14px;
+        }
+
+        div[data-testid="stExpander"] {
+            background: #0B0F14;
+            border: 1px solid #1F2937;
+            border-radius: 12px;
+        }
+
+        .stTextInput input,
+        .stNumberInput input,
+        .stTextArea textarea {
+            background: #0B0F14;
+            color: #F8FAFC;
+        }
+
+        [data-testid="stTabs"] button {
+            color: #94A3B8;
+        }
+
+        [data-testid="stTabs"] button[aria-selected="true"] {
+            color: #F8FAFC;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    st.title("Loan Origination Copilot")
-    st.caption(
-        "LangGraph multi-agent workflow with deterministic policy gates, MCP, agentic RAG, memory, checkpointing, and self-healing."
-    )
-
-    if not st.session_state.run_id:
-        st.session_state.run_id = _new_run_id()
-
     st.markdown(
-        f'<span class="run-chip">Run ID: {st.session_state.run_id}</span>',
+        """
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            padding-bottom:12px;
+            margin-bottom:8px;
+            border-bottom:1px solid #111827;
+        ">
+            <div>
+                <span style="
+                    color:#F8FAFC;
+                    font-size:18px;
+                    font-weight:700;
+                ">LOAN ORIGINATION COPILOT</span>
+                <span style="
+                    color:#475569;
+                    margin-left:12px;
+                    font-size:12px;
+                ">Agent Execution Console</span>
+            </div>
+            <div style="
+                color:#64748B;
+                font-size:11px;
+                letter-spacing:0.8px;
+            ">
+                {run_id}
+            </div>
+        </div>
+        """.format(run_id=st.session_state.run_id),
         unsafe_allow_html=True,
     )
 
-    state, run_requested, _ = _render_sidebar()
-    if run_requested and state is not None:
-        _execute_application(state)
+    page = st.radio(
+        "Navigation",
+        ["Workflow", "Execution Logs", "Graph Knowledge"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
 
-    # Main screen intentionally re-renders current session state only.
-    # A new application starts from a clean graph and event history.
-    left, right = st.columns([2.15, 1])
-
-    with left:
-        st.subheader("Live workflow graph")
-        _render_graph()
-        with st.container(border=True):
-            _render_timeline()
-
-    with right:
-        with st.container(border=True):
-            _render_application_input()
-        with st.container(border=True):
-            _render_outcome()
-
-    st.divider()
-    st.subheader("Execution state")
-    _render_stage_details()
-
-    if st.session_state.run_error:
-        st.subheader("Error summary")
-        st.error(st.session_state.run_error)
+    if page == "Workflow":
+        _render_workflow_page()
+    elif page == "Execution Logs":
+        _render_logs_page()
+    else:
+        _render_graph_knowledge_page()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """Phase 3 deterministic policy gate tests."""
 from src.agents.credit_agent import BureauCheckResult, _apply_policy_gates
-from src.agents.offer_agent import _enforce_constraints, _offer_constraints
-from src.state.schema import OfferDraft
+from src.agents.offer_agent import _offer_constraints, offer_draft_node
+from src.state.schema import ApplicantProfile, CreditAssessment
 
 
 def _bureau(score: int, dti: float, thin: bool = False):
@@ -60,21 +60,36 @@ def test_offer_constraints_follow_price_001_700_749_standard():
     }
 
 
-def test_offer_post_generation_constraints_are_hard_enforced():
-    constraints = _offer_constraints(740, 85_000)
-    offer = OfferDraft(
-        principal=9_000_000,
-        apr=2.0,
-        term_months=120,
-        conditions=["bad"],
-        is_indicative=False,
+def test_offer_draft_node_issues_deterministic_tier_ceiling_offer():
+    """Offer drafting has no LLM call: the offer must exactly match the
+    PRICE-001 tier the applicant qualified for, with no free variable left
+    for anything else to influence."""
+    applicant = ApplicantProfile(
+        applicant_id="SYN-POLICY",
+        full_name="Synthetic Applicant",
+        dob_synthetic="1990-01-01",
+        declared_income=85_000,
+        declared_employment="Engineer",
     )
-    enforced = _enforce_constraints(offer, constraints)
-    assert enforced.principal == 3_000_000
-    assert enforced.apr == 9.5
-    assert enforced.term_months == 48
-    assert enforced.is_indicative is True
-    assert len(enforced.conditions) == 3
+    credit = CreditAssessment(
+        thin_file=False,
+        bureau_score_synthetic=740,
+        dti_ratio=0.35,
+        decision="approve",
+        rationale="Synthetic rationale.",
+        confidence=0.9,
+    )
+    state = {"kyc_result": None, "credit_assessment": credit, "applicant": applicant}
+
+    result = offer_draft_node(state)
+    offer = result["offer"]
+
+    assert offer.principal == 3_000_000
+    assert offer.apr == 9.5
+    assert offer.term_months == 48
+    assert offer.is_indicative is True
+    assert len(offer.conditions) == 3
+    assert result["next_node"] == "END"
 
 
 
