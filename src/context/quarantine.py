@@ -5,6 +5,23 @@ Applicant-submitted free text is untrusted. It is quarantined as data and is
 never used as an instruction source. Raw applicant text is deliberately
 excluded from compression/summarisation; downstream model calls receive only
 trusted structured projections or explicit quarantine metadata.
+
+Security boundary vs. compliance signal — important distinction
+-----------------------------------------------------------------
+`SUSPICIOUS_PATTERNS` below is a best-effort *compliance/audit* signal
+only. Whether or not free text matches one of these patterns has **no**
+effect on the actual isolation guarantee: `quarantine_applicant_text`
+unconditionally wraps every non-empty `raw_free_text_notes` value in an
+`<untrusted_applicant_input>` envelope and the intake/compression paths
+never place that raw text into a model prompt, regardless of the match
+result (see `intake_agent.py` and `build_safe_summary_projection` below).
+A missed pattern therefore only means a real injection attempt goes
+un-flagged for compliance review (no `ComplianceEvent` is raised) — it
+does **not** create a path for injected text to reach a prompt. This list
+is intentionally kept to literal, lowercase substrings (cheap,
+deterministic, auditable) rather than a fuzzy/ML classifier, and is not
+intended to be exhaustive; broaden it as new real-world phrasing patterns
+are observed.
 """
 from __future__ import annotations
 
@@ -15,10 +32,18 @@ from typing import Any
 SUSPICIOUS_PATTERNS = [
     "ignore previous",
     "ignore all previous",
-    "system:",
-    "you are now",
+    "ignore your instructions",
     "disregard your instructions",
+    "disregard previous",
+    "forget previous instructions",
+    "forget your instructions",
+    "override your instructions",
     "new instructions:",
+    "system:",
+    "assistant:",
+    "you are now",
+    "act as if you",
+    "pretend you are",
 ]
 
 # These are the only structured application fields permitted into the trusted

@@ -1,10 +1,11 @@
 # LLM Provider Policy
 
-The system uses **Google Gemini as the model provider**, per
-`specs/loan_origination_spec.md`. A configured backup API provider is used
-for availability and graceful degradation; the current implementation uses
-**Groq as the backup provider**. The backup provider is not part of the
-original spec's baseline — it is an administrator-approved deviation.
+The system uses **Google Gemini as the primary model provider**, per
+`specs/loan_origination_spec.md` — which itself already requires a
+fallback API provider. The current implementation uses **Groq as that
+backup provider**. The *specific choice of Groq* (rather than, say, a
+self-hosted open-weights model) is an administrator-approved deviation;
+the requirement for a fallback to exist at all is not.
 See `docs/deviations.md` (DEV-001) for the rationale, scope, and approval
 record; this document describes only how that already-approved backup is
 wired into the gateway.

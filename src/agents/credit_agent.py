@@ -94,7 +94,22 @@ Return only the requested structured rationale."""
 
 def credit_assessment_node(state: LoanApplicationState) -> dict:
     applicant = state["applicant"]
-    assert applicant is not None, "credit_assessment_node reached without an applicant profile"
+    if applicant is None:
+        # Routing invariant violation: route_after_kyc only ever sends
+        # "credit_assessment" once a passing KYC result is set, which is
+        # itself only reachable once route_after_intake has set
+        # state["applicant"]. Unreachable in the current graph, but —
+        # unlike offer_draft (see src/exceptions.py) — credit_assessment has
+        # a real conditional edge (route_after_credit) that already sends
+        # credit_assessment is None straight to "reflector", so failing
+        # soft here is genuinely picked up by routing rather than silently
+        # ignored. Replaces a bare `assert`, which is stripped entirely
+        # under python -O and would otherwise bypass the self-healing loop.
+        return {"reflection_log": [ReflectionNote(
+            triggered_by="missing_prerequisite_state",
+            action_taken="escalate_to_human",
+            detail="credit_assessment_node reached without an applicant profile.",
+        )]}
 
     # Step 1 — Fetch bureau facts from MCP (deterministic tool)
     try:

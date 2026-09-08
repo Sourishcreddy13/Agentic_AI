@@ -50,10 +50,10 @@ NODE_LABELS = {
 
 NODE_DESCRIPTIONS = {
     "supervisor": "Pure Python entry router. Selects the first workflow hop.",
-    "intake": "LLM-based structured extraction into ApplicantProfile.",
+    "intake": "Deterministic Python extraction into ApplicantProfile from trusted structured fields (no LLM call).",
     "kyc_check": "MCP applicant facts + deterministic KYC gate + LLM explanation.",
     "credit_assessment": "MCP bureau facts + deterministic credit gates + optional agentic RAG.",
-    "offer_draft": "Constrained offer generation with post-generation Python enforcement.",
+    "offer_draft": "Deterministic Python pricing-tier lookup (no LLM call).",
     "memory_consolidation": "Persists durable synthetic memory facts after the decision.",
     "reflector": "Classifies failures and routes bounded retry, replan, or escalation.",
     "END": "Terminal state for the application workflow.",
@@ -61,10 +61,10 @@ NODE_DESCRIPTIONS = {
 
 NODE_AUTHORITY = {
     "supervisor": "Deterministic Python",
-    "intake": "LLM + Pydantic validation",
+    "intake": "Deterministic Python + Pydantic validation",
     "kyc_check": "MCP facts + Python gate + LLM explanation",
     "credit_assessment": "MCP facts + Python gate + LLM rationale",
-    "offer_draft": "Python constraints + LLM draft",
+    "offer_draft": "Deterministic Python (pricing-tier lookup)",
     "memory_consolidation": "Python / memory layer",
     "reflector": "Deterministic Python",
     "END": "Terminal",
@@ -75,7 +75,7 @@ NODE_TOOLS = {
     "intake": [],
     "kyc_check": ["applicant_lookup"],
     "credit_assessment": ["bureau_check", "lending_policy_search (optional/agentic)"],
-    "offer_draft": ["lending_policy_search (optional/agentic)"],
+    "offer_draft": [],
     "memory_consolidation": ["Chroma semantic memory"],
     "reflector": [],
     "END": [],

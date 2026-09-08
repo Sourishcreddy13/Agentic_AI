@@ -1,9 +1,17 @@
 """Conditional edges (AC-03). Every function inspects LoanApplicationState
 and returns the name of the next node (or "END")."""
+from src.config import get_routing_config
 from src.state.schema import LoanApplicationState
 from src.observability.audit_log import log_event
 
 MAX_RETRIES = 2
+
+# Previously a literal 0.55 hardcoded independently in route_after_kyc and
+# route_after_credit. Now sourced from config.yaml's `routing.min_confidence`
+# so it's tunable in the one place every other provider/RAG/memory setting
+# already lives, rather than being the one hardcoded threshold left in the
+# routing layer.
+MIN_CONFIDENCE = float(get_routing_config().get("min_confidence", 0.55))
 
 
 def _record(state: LoanApplicationState, stage: str, destination: str) -> str:
@@ -43,7 +51,7 @@ def route_after_kyc(state: LoanApplicationState) -> str:
         destination = "offer_draft"
     elif kyc.status == "manual_review":
         destination = "reflector"
-    elif kyc.confidence < 0.55:
+    elif kyc.confidence < MIN_CONFIDENCE:
         destination = "reflector"
     else:
         destination = "credit_assessment"
@@ -52,7 +60,7 @@ def route_after_kyc(state: LoanApplicationState) -> str:
 
 def route_after_credit(state: LoanApplicationState) -> str:
     ca = state["credit_assessment"]
-    if ca is None or ca.confidence < 0.55:
+    if ca is None or ca.confidence < MIN_CONFIDENCE:
         destination = "reflector"
     elif ca.decision == "decline":
         destination = "offer_draft"

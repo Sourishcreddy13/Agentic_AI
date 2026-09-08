@@ -1,10 +1,10 @@
 {
   "scope": "pytest regression suite",
   "command": "pytest",
-  "test_count_collected": 112,
-  "generated_at_utc": "2026-09-07T05:55:26.532452+00:00",
+  "test_count_collected": 117,
+  "generated_at_utc": "2026-09-07T08:20:38.892124+00:00",
   "exit_status": 0,
-  "passed": 108,
+  "passed": 113,
   "failed": 0,
   "errors": 0,
   "skipped": 4,

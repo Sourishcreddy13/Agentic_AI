@@ -66,6 +66,18 @@ injection pattern (e.g. `"ignore previous instructions"`, `"system:"`,
 `"you are now"`) is logged and recorded as a `ComplianceEvent` — see
 `docs/agent-contracts.md` — but never changes routing or extraction.
 
+**The security boundary does not depend on pattern detection.** The
+envelope-and-exclude behavior above is unconditional — every non-empty
+`raw_free_text_notes` value is quarantined and kept out of every prompt
+regardless of whether it matches a known pattern. `SUSPICIOUS_PATTERNS`
+(a short, literal, lowercase-substring list, deliberately not exhaustive)
+only decides whether a `ComplianceEvent` is additionally raised for audit
+visibility. A pattern the list misses is a gap in the *compliance signal*
+("was this flagged for review?"), not a gap in isolation ("could this
+reach a prompt?") — those are two different guarantees, and only the
+first one is approximate. See `src/context/quarantine.py`'s module
+docstring for the full rationale.
+
 This implements the context-isolation requirement (NFR-03) and prevents
 applicant-submitted instructions from overriding the agent's control logic.
 Proof: `tests/test_quarantine.py`,

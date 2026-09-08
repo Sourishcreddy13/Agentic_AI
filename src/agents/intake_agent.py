@@ -75,8 +75,8 @@ def intake_node(state: LoanApplicationState, config: RunnableConfig) -> dict:
     memory_hits: list[str] = []
     if runtime.memory_enabled(config) and trusted_payload.get("applicant_id"):
         try:
-            from src.memory.long_term_store import ChromaMemoryStore
-            store = ChromaMemoryStore(runtime.memory_store_path(config))
+            from src.memory.long_term_store import get_memory_store
+            store = get_memory_store(runtime.memory_store_path(config))
             query = (
                 "prior loan application facts, employment, prior outcomes, "
                 "and durable user preferences"

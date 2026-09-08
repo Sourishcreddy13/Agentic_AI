@@ -25,8 +25,8 @@
 - [x] **Phase 6 — Application interface, final evidence, and submission
       readiness.** Required CLI single-command execution, optional
       Streamlit visualization, finalized `.env.example`, committed evidence
-      artifacts, and submission documentation. Git PR history remains a
-      repository-delivery requirement (see README §18).
+      artifacts, and submission documentation. Git commit/PR history remains
+      a repository-delivery requirement.
 
 - [x] **Phase 6.1 — Independent architecture review + hardening pass.** An
       end-to-end review against the spec surfaced and fixed a set of

@@ -95,6 +95,17 @@ def get_mcp_config() -> dict[str, Any]:
     return config
 
 
+def get_routing_config() -> dict[str, Any]:
+    config = CONFIG.get("routing", {})
+
+    if not isinstance(config, dict):
+        raise ValueError(
+            "config.yaml: routing must be a mapping."
+        )
+
+    return config
+
+
 def get_google_api_key() -> str:
     value = os.getenv("GOOGLE_API_KEY")
 

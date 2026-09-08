@@ -26,6 +26,13 @@ mcp:
   server_name: loan-origination
   transport: stdio
 
+routing:
+  # Below this confidence, a KYC or credit-assessment output is routed to
+  # the reflector instead of the next stage (route_after_kyc /
+  # route_after_credit in src/graph/routing.py). Previously hardcoded as a
+  # literal 0.55 independently in both functions.
+  min_confidence: 0.55
+
 memory:
   checkpoint_db: data/checkpoints.sqlite
   chroma_persist_directory: data/chroma_memory

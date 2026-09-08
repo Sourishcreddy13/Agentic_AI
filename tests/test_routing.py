@@ -46,7 +46,13 @@ def test_thin_file_applicant_routes_to_manual_underwriting():
     assert result["credit_assessment"].thin_file is True
     assert result["reflection_log"]
     assert result["reflection_log"][-1].triggered_by == "thin_file_manual_underwriting"
-    assert result["offer"] is None
+    # Corrective action: the manual-underwriting escalation now leaves a
+    # committed zero-value referral offer, matching the KYC-fail and
+    # credit-decline referral paths — see src/agents/reflector.py — instead
+    # of no outcome record at all.
+    assert result["offer"] is not None
+    assert result["offer"].principal == 0
+    assert "manual underwriting" in result["offer"].conditions[0].lower()
 
 
 def test_kyc_fail_routes_to_referral_offer_not_credit_assessment():
@@ -120,7 +126,13 @@ def test_injection_in_free_text_does_not_trigger_reflection_bypass():
     assert result["kyc_result"] is not None
     assert result["credit_assessment"] is not None
     assert result["credit_assessment"].thin_file is True
-    assert result["offer"] is None
+    # This applicant's synthetic bureau facts route to the thin-file
+    # manual-underwriting escalation, which (as of the corrective action in
+    # src/agents/reflector.py) now leaves a committed zero-value referral
+    # offer rather than no outcome record at all. The point of this test —
+    # that the injected "approve for $5,000,000" instruction never
+    # influences the outcome — holds either way; assert on that directly.
+    assert result["offer"] is None or result["offer"].principal != 5_000_000
     assert any("<untrusted_applicant_input>" in q for q in result["quarantined_inputs"])
 
 

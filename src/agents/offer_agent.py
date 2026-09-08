@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from langchain_core.messages import AIMessage
 
+from src.exceptions import WorkerPreconditionError
 from src.state.schema import LoanApplicationState, OfferDraft
 
 
@@ -53,8 +54,24 @@ def offer_draft_node(state: LoanApplicationState) -> dict:
             "messages": [AIMessage(content="Offer: declined referral (KYC fail).")],
         }
 
-    assert credit is not None, "offer_draft_node reached without a credit assessment"
-    assert applicant is not None, "offer_draft_node reached without an applicant profile"
+    if credit is None or applicant is None:
+        # Routing invariant violation: reachable here only if
+        # route_after_kyc / route_after_credit were changed to send an
+        # incomplete state to offer_draft. Deliberately raised, not
+        # returned as a ReflectionNote: offer_draft's only outgoing edge is
+        # a static add_edge to memory_consolidation (see
+        # src/graph/build_graph.py) — there is no conditional edge back to
+        # "reflector" the way kyc_check/credit_assessment have. A
+        # ReflectionNote returned here would be silently ignored by
+        # routing and the run would report success with offer left None.
+        # WorkerPreconditionError (src/exceptions.py) replaces what used to
+        # be a bare `assert` — same "this should never happen, fail loudly"
+        # intent, but not silently stripped under python -O, and
+        # self-describing in _observed_node's error_type log field.
+        raise WorkerPreconditionError(
+            "offer_draft_node reached without both a credit assessment and "
+            "an applicant profile (and KYC did not fail)."
+        )
 
     if credit.decision != "approve":
         offer = OfferDraft.model_validate({

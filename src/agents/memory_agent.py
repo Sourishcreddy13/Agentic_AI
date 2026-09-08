@@ -23,12 +23,12 @@ def memory_consolidation_node(
 
     try:
         from src.memory.extraction import extract_memory_facts
-        from src.memory.long_term_store import ChromaMemoryStore
+        from src.memory.long_term_store import get_memory_store
         facts = extract_memory_facts(state)
         if not facts:
             log_event("memory_consolidation_completed", user_id=user_id, thread_id=state.get("thread_id"), fact_count=0)
             return {}
-        ChromaMemoryStore(runtime.memory_store_path(config)).upsert_facts(facts)
+        get_memory_store(runtime.memory_store_path(config)).upsert_facts(facts)
         log_event(
             "memory_consolidation_completed",
             user_id=user_id,

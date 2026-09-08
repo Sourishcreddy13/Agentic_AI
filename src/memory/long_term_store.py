@@ -188,3 +188,33 @@ class ChromaMemoryStore:
             evictions.extend(ordered[: len(facts) - MAX_FACTS_PER_USER])
 
         self.delete_facts(list(dict.fromkeys(f.fact_id for f in evictions)))
+
+
+@lru_cache(maxsize=8)
+def _cached_memory_store(persist_directory: str | None) -> ChromaMemoryStore:
+    return ChromaMemoryStore(persist_directory)
+
+
+def get_memory_store(persist_directory: str | Path | None = None) -> ChromaMemoryStore:
+    """Cached ChromaMemoryStore construction.
+
+    `ChromaMemoryStore` used to be instantiated fresh on essentially every
+    node invocation that touches long-term memory (intake's lookup,
+    memory_consolidation's post-decision write) — the underlying embedding
+    model was already cached (`_embedding_model` above), but the store
+    wrapper's chromadb `PersistentClient`/collection handle was rebuilt from
+    scratch every time regardless. `src/agents/intake_agent.py` and
+    `src/agents/memory_agent.py` now call this instead of constructing
+    `ChromaMemoryStore` directly, cached by the resolved persist-directory
+    string (each isolated test path is a distinct cache key, so
+    per-test isolation via a unique `tmp_path` is unaffected). Direct
+    `ChromaMemoryStore(...)` construction remains available and is what
+    tests that exercise the class itself should keep using.
+    """
+    key = str(persist_directory) if persist_directory is not None else None
+    return _cached_memory_store(key)
+
+
+def reset_memory_store_cache() -> None:
+    """Clear the cached ChromaMemoryStore instances. Mainly useful for test isolation."""
+    _cached_memory_store.cache_clear()

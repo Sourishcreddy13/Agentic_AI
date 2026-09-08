@@ -33,7 +33,7 @@ max_retries_exceeded note so routing can see the terminal state and END.
 """
 from __future__ import annotations
 
-from src.state.schema import LoanApplicationState, ReflectionNote
+from src.state.schema import LoanApplicationState, OfferDraft, ReflectionNote
 from src.graph.routing import MAX_RETRIES
 
 
@@ -60,6 +60,12 @@ ESCALATE: frozenset[str] = frozenset({
     "kyc_manual_review",
     "thin_file_manual_underwriting",
     "max_retries_exceeded",
+    # Raised by kyc_check_node / credit_assessment_node when a routing
+    # invariant is violated (a node was entered without its prerequisite
+    # state) — see src/exceptions.py for why offer_draft_node instead
+    # raises WorkerPreconditionError rather than reaching this taxonomy at
+    # all. Not a normal runtime failure, so it is not retried.
+    "missing_prerequisite_state",
 })
 
 
@@ -100,7 +106,29 @@ def reflector_node(state: LoanApplicationState) -> dict:
             action_taken="escalate_to_human",
             detail="Thin-file applicant routed to manual underwriting.",
         )
-        return {"reflection_log": [note], "retry_count": 1}
+        # This escalation ends the graph (route_after_reflection sends
+        # escalate_to_human straight to END) without ever reaching
+        # offer_draft — so unlike a KYC-fail referral or a declined credit
+        # decision (both of which do reach offer_draft and get an explicit
+        # zero-principal OfferDraft with a human-readable referral note),
+        # a thin-file manual-underwriting escalation used to leave no
+        # committed outcome record at all beyond an ephemeral
+        # ReflectionNote. Write the same shape of zero-value referral offer
+        # here so a human-officer queue consuming `offer` has something to
+        # act on for every escalation path, not just two of the three.
+        referral_offer = OfferDraft.model_validate({
+            "principal": 0, "apr": 0, "term_months": 0,
+            "conditions": [
+                "Thin-file application referred to manual underwriting "
+                "team; no automated offer issued."
+            ],
+            "is_indicative": True,
+        })
+        return {
+            "reflection_log": [note],
+            "retry_count": 1,
+            "offer": referral_offer,
+        }
 
     # --- Classify the most recent failure and apply budget check ---
     if state["reflection_log"]:

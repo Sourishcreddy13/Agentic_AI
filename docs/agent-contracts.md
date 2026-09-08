@@ -40,19 +40,28 @@ follow-up message resumes to `END` without re-running any worker — see
 
 | | |
 |---|---|
-| **Type** | LLM extraction + deterministic guard |
-| **Inputs** | Raw application message, after structured field parsing |
+| **Type** | Deterministic Python extraction + guard |
+| **Inputs** | Raw application message |
 | **Tools** | None |
-| **LLM** | Yes — structured extraction into `ApplicantProfile` |
+| **LLM** | No — `ApplicantProfile` is built directly from the trusted structured payload fields via `ApplicantProfile.model_validate(...)`; there is no free-form extraction step, so there is nothing for an LLM to add |
 | **Produces** | `ApplicantProfile` (Pydantic-validated) |
-| **Owns** | Quarantine of applicant-submitted free text; rejection of any LLM-mutated trusted field |
+| **Owns** | Quarantine of applicant-submitted free text; rejection of any malformed/unexpected trusted-field shape |
 
 Only trusted structured fields (`applicant_id`, `full_name`, `dob_synthetic`,
-`declared_income`, `declared_employment`) reach the extraction prompt.
+`declared_income`, `declared_employment`) are read into `ApplicantProfile`.
 `raw_free_text_notes` is wrapped in an explicit quarantine envelope and
-never enters a model prompt. After extraction, Python re-compares every
-trusted field against the LLM's output and raises if the model changed one
-— the LLM extracts, it does not get to overwrite ground truth.
+never enters a model prompt. A shape mismatch on the trusted fields (e.g.
+unexpected/missing input) surfaces as a `ValidationError` and is routed to
+reflection/retry rather than propagating downstream — see
+`src/agents/intake_agent.py`.
+
+> **Note (corrected 2026-09):** earlier revisions of this document and of
+> `app.py`'s node descriptions described intake as LLM-based extraction with
+> a Python field-comparison guard. That was true of an earlier design; the
+> shipped `intake_node` has never called an LLM in its current form. This
+> section, and the corresponding `app.py` labels, were updated to match
+> `src/agents/intake_agent.py` as committed, per the project's own
+> evidence-in-repo standard (`docs/traceability.md`).
 
 If the free text matches a known prompt-injection pattern, a
 `ComplianceEvent` (`suspected_prompt_injection_in_free_text`) is appended to
@@ -92,12 +101,18 @@ still made entirely by `route_after_kyc`.
 
 | | |
 |---|---|
-| **Type** | Python guard + LLM draft + Python constraint enforcement |
+| **Type** | Deterministic Python guard + Python tier lookup |
 | **Inputs** | `ApplicantProfile`, `CreditAssessment` |
-| **Tools** | `lending_policy_search` (agentic — optional pricing context) |
-| **LLM** | Yes — drafts `OfferDraft` inside Python-provided bounds |
-| **Produces** | `OfferDraft` (Pydantic-validated + constraint-clipped) |
-| **Python gate** | `decision != approve` → zero-principal referral note, no LLM call. Otherwise, bounds follow the score-tier PRICE-001 table (`_offer_constraints`); the LLM's proposed `principal`/`apr`/`term_months` is clipped post-generation by `_enforce_constraints`, which also overwrites `conditions` with the three mandatory disclosure clauses. |
+| **Tools** | None |
+| **LLM** | No — every PRICE-001 pricing tier pins `min_apr == max_apr`, so APR is never a free variable; principal and term are issued at the tier ceiling. There is nothing left for an LLM to propose that Python doesn't already fully determine. |
+| **Produces** | `OfferDraft` (Pydantic-validated) |
+| **Python gate** | `decision != approve` (or a KYC-fail referral) → zero-principal referral note. Otherwise, `principal`/`apr`/`term_months` come directly from the score-tier PRICE-001 table (`_offer_constraints`); `conditions` is always the fixed `MANDATORY_OFFER_CONDITIONS` list. |
+
+> **Note (corrected 2026-09):** see the note under Intake Agent above — this
+> row previously described an LLM-drafted offer clipped by a Python
+> `_enforce_constraints` function. No such function exists in the shipped
+> `src/agents/offer_agent.py`; offer drafting has never called an LLM in its
+> current form. Corrected to match the committed code.
 
 ### Reflector
 
@@ -158,9 +173,10 @@ See `tests/test_compliance_events.py`.
 |---|---|---|
 | `kyc_result.status` | Python (`_apply_kyc_policy`) | Gemini / Groq |
 | `credit_assessment.decision` | Python (`_apply_policy_gates`) | Gemini / Groq |
-| `offer.principal` / `apr` / `term_months` | Python-enforced ceiling (`_enforce_constraints`) | Gemini / Groq (proposes a draft only) |
+| `offer.principal` / `apr` / `term_months` | Python tier lookup (`_offer_constraints`) — no LLM in this node at all | Gemini / Groq |
 | `next_node` / graph routing | Python (`src/graph/routing.py`) | Gemini / Groq |
-| `*.rationale`, offer `conditions` copy | Gemini / Groq | — |
+| `kyc_result.rationale`, `credit_assessment.rationale` | Gemini / Groq | — |
+| `offer.conditions` | Python (fixed `MANDATORY_OFFER_CONDITIONS` list) | Gemini / Groq |
 
 ---
 
@@ -170,7 +186,7 @@ See `tests/test_compliance_events.py`.
 |---|---|---|---|
 | `applicant_lookup` | **Deterministic** — required workflow dependency | KYC agent | Required |
 | `bureau_check` | **Deterministic** — required workflow dependency | Credit agent | Required |
-| `lending_policy_search` | **Agentic** — discretionary RAG | Credit / Offer agent | Only when the model decides retrieval is useful |
+| `lending_policy_search` | **Agentic** — discretionary RAG | Credit agent only (the offer-draft agent does not call this tool — see the correction above) | Only when the model decides retrieval is useful |
 
 The distinction matters for AC-11: `lending_policy_search` is agentic
 because the model decides whether to call it; retrieval is not a mandatory

@@ -6,6 +6,7 @@ the logic directly, without spawning a subprocess).
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +87,36 @@ def bureau_check(applicant_id: str, declared_income: float) -> dict[str, Any]:
     }
 
 
+@lru_cache(maxsize=4)
+def _get_policy_store(persist_directory: str, collection_name: str, embedding_model: str):
+    """Cached PolicyVectorStore construction.
+
+    Previously every `lending_policy_search` call rebuilt a fresh
+    PolicyVectorStore (a chromadb PersistentClient + collection handle) from
+    scratch. The heaviest part — the Sentence-Transformers model load — was
+    already cached one layer down (`policy_store.py::_embedding_model`), but
+    the store wrapper itself was not. Caching by the three config values that
+    fully determine store identity (all plain strings, hashable) removes the
+    remaining redundant client/collection construction on every call, the
+    same pattern this project already uses for the embedding model itself.
+    Call `reset_policy_store_cache()` to force a fresh instance (mirrors
+    `src/mcp_client.py::reset_mcp_tools_cache`), e.g. in tests that rebuild
+    the index under a fresh path.
+    """
+    from src.rag.policy_store import PolicyVectorStore
+
+    return PolicyVectorStore(
+        persist_directory,
+        collection_name=collection_name,
+        embedding_model=embedding_model,
+    )
+
+
+def reset_policy_store_cache() -> None:
+    """Clear the cached PolicyVectorStore. Mainly useful for test isolation."""
+    _get_policy_store.cache_clear()
+
+
 def lending_policy_search(query: str, k: int = 3) -> list[dict[str, Any]]:
     """Semantically search the synthetic lending-policy corpus with Chroma.
 
@@ -94,13 +125,12 @@ def lending_policy_search(query: str, k: int = 3) -> list[dict[str, Any]]:
     loop: query + k in, ranked policy clauses out.
     """
     from src.config import get_rag_config
-    from src.rag.policy_store import PolicyVectorStore
 
     config = get_rag_config()
-    store = PolicyVectorStore(
+    store = _get_policy_store(
         config["persist_directory"],
-        collection_name=config["collection_name"],
-        embedding_model=config["embedding_model"],
+        config["collection_name"],
+        config["embedding_model"],
     )
     return store.search(
         query,

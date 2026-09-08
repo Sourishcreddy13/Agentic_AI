@@ -41,7 +41,21 @@ def _apply_kyc_policy(lookup: ApplicantLookupResult) -> tuple[str, list[str]]:
 
 def kyc_check_node(state: LoanApplicationState) -> dict:
     applicant = state["applicant"]
-    assert applicant is not None, "kyc_check_node reached without an applicant profile"
+    if applicant is None:
+        # Routing invariant violation: route_after_intake only ever sends
+        # "kyc_check" once state["applicant"] is set. This should be
+        # unreachable, but — unlike offer_draft (see src/exceptions.py) —
+        # kyc_check has a real conditional edge (route_after_kyc) that
+        # already sends kyc_result is None straight to "reflector", so a
+        # ReflectionNote here is genuinely picked up by the graph rather
+        # than silently ignored. Fail soft into the existing self-healing
+        # loop instead of crashing the run on what used to be a bare
+        # `assert` (stripped entirely under python -O).
+        return {"reflection_log": [ReflectionNote(
+            triggered_by="missing_prerequisite_state",
+            action_taken="escalate_to_human",
+            detail="kyc_check_node reached without an applicant profile.",
+        )]}
 
     try:
         raw = invoke_mcp_tool_sync(
